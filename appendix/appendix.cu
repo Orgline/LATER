@@ -1,6 +1,9 @@
 #include "LATER.h"
 
-
+struct cudaCtxt {
+	cublasHandle_t cublas_handle;
+	cusolverDnHandle_t cusolver_handle;
+};
 
 cudaEvent_t begin, end;
 void startTimer()
