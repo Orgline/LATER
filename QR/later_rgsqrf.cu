@@ -17,8 +17,31 @@ the output A stores the upper triangular matrix R
 Both A and R need to be stored on GPU initially
 */
 
+#define NMIN 128
+
 void later_rgsqrf(int m, int n, float *A, int lda, float *R, int ldr)
 {
-    
+    cudaCtxt ctxt;
+    cublasCreate(&ctxt.cublas_handle );
+    cusolverDnCreate(&ctxt.cusolver_handle );
+
+    int lwork;
+
+    cusolverDnSgeqrf_bufferSize(
+        ctxt.cusolver_handle,
+        m,
+        NMIN,
+        A,
+        lda,
+        &lwork
+    );
+
+    float *work;
+    cudaMalloc( &work, lwork * sizeof(float) );
+
+    __half *hwork;
+	int lhwork = m*n;
+    cudaMalloc( &hwork, sizeof(__half) * lhwork );
+
     return;
 }

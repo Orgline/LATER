@@ -9,6 +9,11 @@
 #include <cuda_runtime.h>
 
 
+struct cudaCtxt {
+	cublasHandle_t cublas_handle;
+	cusolverDnHandle_t cusolver_handle;
+};
+
 
 /*
 These three functions are related with QR factorization
