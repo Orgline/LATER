@@ -19,6 +19,16 @@ Both A and R need to be stored on GPU initially
 
 #define NMIN 128
 
+int qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work, int lwork, __half *hwork, int lhwork)
+{
+    int info;
+
+    if(n<=128)
+
+
+    return 0;
+}
+
 void later_rgsqrf(int m, int n, float *A, int lda, float *R, int ldr)
 {
     cudaCtxt ctxt;
@@ -42,6 +52,8 @@ void later_rgsqrf(int m, int n, float *A, int lda, float *R, int ldr)
     __half *hwork;
 	int lhwork = m*n;
     cudaMalloc( &hwork, sizeof(__half) * lhwork );
+
+    qr()
 
     return;
 }
