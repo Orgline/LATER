@@ -2,13 +2,17 @@
 #include "LATER_QR.h"
 #include "../include/cub-1.8.0/cub-1.8.0/cub/cub.cuh"
 
+
+
 void mgs_caqr_panel_256x128(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work)
 {
     if (m<256 || n!=128) 
     {
         printf("CAQR_256x128: ERROR: m must be > 256, n must be 128. (m,n)=(%d,%d)\n", m, n);
     }
-    float sone = 1.0, szero = 0.0, snegone = -1.0;
+    float sone = 1.0;
+    float szero = 0.0;
+    float snegone= -1.0;
 // qr left 64
     mgs_caqr_panel_256x32(ctxt, m, 32, A, lda, R, ldr, work);
     cublasSgemm(ctxt.cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N,
@@ -72,7 +76,9 @@ void mgs_caqr_panel_256x32(cudaCtxt ctxt, int m, int n, float *A, int lda, float
     else 
     { // m > 256, recurse.
         
-        float sone = 1.0, szero = 0.0;
+        float sone = 1.0;
+        float szero = 0.0;
+        
         if (m%256 == 0) 
         {
             int ldwork = m/256*32;
@@ -81,7 +87,6 @@ void mgs_caqr_panel_256x32(cudaCtxt ctxt, int m, int n, float *A, int lda, float
             mgs_kernel<<<m/256,256>>>(m, n, A,  lda, work, ldwork);
 
             mgs_caqr_panel_256x32(ctxt, mm , n, work, ldwork, R, ldr, work+ldwork*n);
-
             
             cublasSgemmStridedBatched(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
             256, 32, 32,
@@ -148,8 +153,8 @@ __global__ void mgs_kernel(int m, int n, float *AA, int lda, float *RR, int ldr)
     const int ldas = 256, ldrs = 32;
 
 
-    float acc1[1], acc2[1], acc3[1], acc4[1];
-    float sum1, sum2, sum3, sum4;
+    //float acc1[1], acc2[1], acc3[1], acc4[1];
+    float sum1;
 
     typedef cub::BlockReduce<float4, 256> BlockReduce;
     typedef cub::BlockReduce<float, 256> BlockReduce2;

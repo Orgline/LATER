@@ -9,9 +9,6 @@
 #include <cuda_runtime.h>
 
 
-
-
-
 /*
 These three functions are related with QR factorization
 
@@ -49,3 +46,14 @@ This is not supported
 void startTimer();
 
 void stopTimer();
+
+/*
+s2h: convert single matrix to half matrix
+h2s: convert half matrix to single matrix
+*/
+
+__global__
+void s2h(int m, int n, float *as, int ldas, __half *ah, int ldah);
+
+__global__
+void h2s(int m, int n,__half *ah, int ldah, float *as, int ldas);

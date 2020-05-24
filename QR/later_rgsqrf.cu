@@ -27,8 +27,12 @@ int qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float 
     if(n<=NMIN)
     {
         mgs_caqr_panel_256x128(ctxt,  m, n, A, lda, R, ldr, work );
+        return 0;
     }
 
+    //left recurse
+    qr( ctxt, m, n/2, A, lda, R, ldr, work, lwork, hwork, lhwork );
+    
 
     return 0;
 }
