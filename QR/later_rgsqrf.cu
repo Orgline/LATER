@@ -1,4 +1,5 @@
 #include "LATER.h"
+#include "LATER_QR.h"
 
 /*
 This function performs recursive Gram-Schmidt QR factorization
@@ -23,7 +24,10 @@ int qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float 
 {
     int info;
 
-    if(n<=128)
+    if(n<=NMIN)
+    {
+        mgs_caqr_panel_256x128(ctxt,  m, n, A, lda, R, ldr, work );
+    }
 
 
     return 0;
@@ -53,7 +57,7 @@ void later_rgsqrf(int m, int n, float *A, int lda, float *R, int ldr)
 	int lhwork = m*n;
     cudaMalloc( &hwork, sizeof(__half) * lhwork );
 
-    qr()
+    //sqr()
 
     return;
 }
