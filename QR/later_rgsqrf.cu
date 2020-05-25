@@ -87,8 +87,8 @@ void later_rgsqrf(int m, int n, float *A, int lda, float *R, int ldr)
 
     cudaFree(work);
     cudaFree(hwork);
-
-    //sqr()
+    cublasDestroy(ctxt.cublas_handle);
+    cusolverDnDestroy(ctxt.cusolver_handle);
 
     return;
 }
