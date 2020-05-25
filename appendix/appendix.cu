@@ -39,3 +39,21 @@ void h2s(int m, int n,__half *ah, int ldah, float *as, int ldas)
 		as[i + j*ldah] = __half2float(ah[i + j*ldas]);
 	}
 }
+
+void generateNormalMatrix(float *dA,int m,int n)
+{
+    curandGenerator_t gen;
+    curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+    int seed = rand()%3000;
+	curandSetPseudoRandomGeneratorSeed(gen, seed);
+    curandGenerateNormal(gen, dA, m*n,0,1);
+}
+
+void generateUniformMatrix(float *dA,int m,int n)
+{
+    curandGenerator_t gen;
+    curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+    int seed = rand()%3000;
+	curandSetPseudoRandomGeneratorSeed(gen, seed);
+    curandGenerateUniform(gen,dA,m*n);
+}

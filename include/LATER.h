@@ -57,3 +57,13 @@ void s2h(int m, int n, float *as, int ldas, __half *ah, int ldah);
 
 __global__
 void h2s(int m, int n,__half *ah, int ldah, float *as, int ldas);
+
+/*
+Generate a matrix on GPU
+normal matrix has a mean 0 and a standard deviation 1
+*/
+
+void generateUniformMatrix(float *dA,int m,int n);
+
+void generateNormalMatrix(float *dA,int m,int n);
+
