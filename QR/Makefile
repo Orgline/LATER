@@ -5,5 +5,5 @@ LFLAGS = -L $(CUDADIR)/lib64  -lcublas -lcurand -lcudart -lcusparse  -lcuda  -Xl
 CC = gcc
 
 
-test: test.cu later_rhouqr.cu later_rgsqrf.cu later_bhouqr.cu panel.cu
+test: test.cu later_rhouqr.cu later_rgsqrf.cu later_bhouqr.cu panel.cu ../appendix/appendix.cu
 	$(CXX)  $(CFLAGS) $(LFLAGS) $^ -o $@

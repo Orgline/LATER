@@ -45,7 +45,7 @@ This is not supported
 */
 void startTimer();
 
-void stopTimer();
+float stopTimer();
 
 /*
 s2h: convert single matrix to half matrix
