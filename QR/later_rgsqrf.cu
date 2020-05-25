@@ -83,6 +83,11 @@ void later_rgsqrf(int m, int n, float *A, int lda, float *R, int ldr)
 	int lhwork = m*n;
     cudaMalloc( &hwork, sizeof(__half) * lhwork );
 
+    qr( ctxt, m, n, A, m, R, ldr, work, lwork, hwork, lhwork );
+
+    cudaFree(work);
+    cudaFree(hwork);
+
     //sqr()
 
     return;
