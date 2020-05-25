@@ -67,3 +67,15 @@ void generateUniformMatrix(float *dA,int m,int n);
 
 void generateNormalMatrix(float *dA,int m,int n);
 
+/*
+snorm returns the f-norm of a vector/matrix
+*/
+
+float snorm(int m,int n,float* dA);
+
+/*
+set a matrix to be an identity matrix
+*/
+
+__global__
+void setEye( int m, int n, float *a, int lda);

@@ -1,9 +1,101 @@
 #include "LATER.h"
 
-int main()
+int algo;
+int m,n;
+
+void checkResult(int m,int n,float* A,int lda, float *Q, int ldq, float *R, int ldr);
+void sgemm(int m,int n,int k,float *dA,int lda, float *dB,int ldb,float *dC, int ldc,float alpha,float beta);
+void checkOtho(int,int,float*, int);
+
+int parseArguments(int argc,char *argv[])
 {
-    int m,n,lda,ldr;
-    float *A,*R;
-    later_rhouqr(m,n,A,lda,R,ldr);
+    algo = atoi(argv[1]);
+    m = atoi(argv[2]);
+    n = atoi(argv[3]);
     return 0;
+}
+
+int main(int argc,char *argv[])
+{
+    if(parseArguments(argc,argv)!=0)
+    {
+        return 0;
+    }
+    float *A;
+    cudaMalloc(&A,sizeof(float)*m*n);
+    float *R;
+    cudaMalloc(&R,sizeof(float)*n*n);
+    generateUniformMatrix(A,m,n);
+
+    float *dA;
+    cudaMalloc(&dA,sizeof(float)*m*n);
+    cudaMemcpy(dA,A,sizeof(float)*m*n,cudaMemcpyDeviceToDevice);
+
+    if (algo == 1)
+    {
+
+        printf("Perform RGSQRF\nmatrix size %d*%d\n",m,n);
+        later_rgsqrf(m,n,A,m,R,n);
+        
+        printf("Orthogonality ");
+        checkOtho(m,n,A,m);
+
+        printf("Backward error ");
+        checkResult(m,n,dA,m,A,m,R,n);
+    }
+
+    cudaFree(A);
+    cudaFree(R);
+    cudaFree(dA);
+    return 0;
+}
+
+void checkResult(int m,int n,float* A,int lda, float *Q, int ldq, float *R, int ldr)
+{
+    float normA = snorm(m,n,A);
+    float alpha = 1.0;
+    float beta = -1.0;
+    sgemm(m,n,n,Q,ldq,R,ldr,A,lda,alpha,beta);
+    float normRes = snorm(m,n,A);
+    printf("||A-QR||/(||A||) = %.6e\n",normRes/normA);
+}
+
+void sgemm(int m,int n,int k,float *dA,int lda, float *dB,int ldb,float *dC, int ldc,float alpha,float beta)
+{
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    float sone = alpha;
+    float szero = beta;
+    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
+         m,n,k, 
+         &sone, dA, lda, 
+         dB, ldb, 
+         &szero, dC, ldc
+    );
+    cublasDestroy(handle);
+}
+
+void checkOtho(int m,int n,float *Q, int ldq)
+{
+    float *I;
+    cudaMalloc(&I,sizeof(float)*n*n);
+
+    //printMatrixDeviceBlock("Q.csv",m,n,Q,m);
+      
+	dim3 grid96( (n+1)/32, (n+1)/32 );
+	dim3 block96( 32, 32 );
+    setEye<<<grid96,block96>>>( n, n, I, n);
+    float snegone = -1.0;
+    float sone  = 1.0;
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, m,
+        &snegone, Q, CUDA_R_32F, ldq, Q, CUDA_R_32F, ldq,
+        &sone, I, CUDA_R_32F, n, CUDA_R_32F,
+        CUBLAS_GEMM_DEFAULT);
+    
+    float normRes = snorm(n,n,I);
+    printf("||I-Q'*Q||/N = %.6e\n",normRes/n);
+    cudaFree(I);
+    cublasDestroy(handle);
 }

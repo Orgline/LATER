@@ -57,3 +57,27 @@ void generateUniformMatrix(float *dA,int m,int n)
 	curandSetPseudoRandomGeneratorSeed(gen, seed);
     curandGenerateUniform(gen,dA,m*n);
 }
+
+float snorm(int m,int n,float* dA)
+{
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    float sn;
+    int incx = 1;
+    cublasSnrm2(handle, m*n, dA, incx, &sn);
+    cublasDestroy(handle);
+    return sn;
+}
+
+__global__
+void setEye( int m, int n, float *a, int lda)
+{
+	int i = threadIdx.x + blockDim.x * blockIdx.x;
+	int j = threadIdx.y + blockDim.y * blockIdx.y;
+	if (i < m && j < n) {
+		if (i == j) 
+			a[i+j*lda] = 1;
+		else
+			a[i+j*lda] = 0;
+	}
+}
