@@ -65,11 +65,11 @@ int main(int argc,char *argv[])
         printf("RGSQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
                 2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
         
-        printf("Orthogonality ");
-        checkOtho(m,n,A,m);
+        //printf("Orthogonality ");
+        //checkOtho(m,n,A,m);
 
-        printf("Backward error ");
-        checkResult(m,n,dA,m,A,m,R,n);
+        //printf("Backward error ");
+        //checkResult(m,n,dA,m,A,m,R,n);
     }
 
     cudaFree(A);
