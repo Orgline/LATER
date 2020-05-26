@@ -1,6 +1,6 @@
 CXX = nvcc
 CULDFLAGS=-L/usr/local/cuda/lib
-CFLAGS = -O2  -I $(CUDADIR)/include   -I /home/shaoshuai/LATER/include -I /home/shaoshuai/LATER/QR/include
+CFLAGS = -O2  -I $(CUDADIR)/include   -I ../include -I ./include
 LFLAGS = -L $(CUDADIR)/lib64  -lcublas -lcurand -lcudart -lcusparse  -lcuda  -Xlinker -lcusolver -lpthread -lm -ldl -lineinfo
 CC = gcc
 
