@@ -18,7 +18,7 @@ rhouqr: recursive Householder QR factorization
 
 bhouqr: block Householder QR factorization
 */
-void later_rgsqrf(int m, int n, float* A, int lda, float* R, int ldr);
+void later_rgsqrf(int m, int n, float* A, int lda, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork);
 
 void later_rhouqr(int m, int n, float* A, int lda, float* R, int ldr);
 

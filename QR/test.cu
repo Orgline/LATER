@@ -1,4 +1,7 @@
 #include "LATER.h"
+#include "LATER_QR.h"
+
+#define NMIN 128
 
 int algo;
 int m,n;
@@ -31,12 +34,33 @@ int main(int argc,char *argv[])
     cudaMalloc(&dA,sizeof(float)*m*n);
     cudaMemcpy(dA,A,sizeof(float)*m*n,cudaMemcpyDeviceToDevice);
 
+    cudaCtxt ctxt;
+    cublasCreate(&ctxt.cublas_handle );
+    cusolverDnCreate(&ctxt.cusolver_handle );
+
+    int lwork;
+
+    cusolverDnSgeqrf_bufferSize(
+        ctxt.cusolver_handle,
+        m,
+        NMIN,
+        A,
+        m,
+        &lwork
+    );
+    float *work;
+    cudaMalloc( &work, lwork * sizeof(float) );
+    
+    __half *hwork;
+    int lhwork = m*n;
+    cudaMalloc( &hwork, sizeof(__half) * lhwork );
+
+        
     if (algo == 1)
     {
-
         printf("Perform RGSQRF\nmatrix size %d*%d\n",m,n);
         startTimer();
-        later_rgsqrf(m,n,A,m,R,n);
+        later_rgsqrf(m,n,A,m,R,n,work,lwork,hwork,lhwork);
         float ms = stopTimer();
         printf("RGSQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
                 2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
@@ -59,11 +83,7 @@ void checkResult(int m,int n,float* A,int lda, float *Q, int ldq, float *R, int 
     float normA = snorm(m,n,A);
     float alpha = 1.0;
     float beta = -1.0;
-    startTimer();
     sgemm(m,n,n,Q,ldq,R,ldr,A,lda,alpha,beta);
-    float ms = stopTimer();
-    printf("CUSOLVER QR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
-            2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
     float normRes = snorm(m,n,A);
     printf("||A-QR||/(||A||) = %.6e\n",normRes/normA);
 }
