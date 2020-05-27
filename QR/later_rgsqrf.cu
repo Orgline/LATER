@@ -59,34 +59,14 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float
     return;
 }
 
-void later_rgsqrf(int m, int n, float *A, int lda, float *R, int ldr)
+void later_rgsqrf(int m, int n, float *A, int lda, float *R, int ldr, float *work, int lwork, __half *hwork, int lhwork)
 {
     cudaCtxt ctxt;
     cublasCreate(&ctxt.cublas_handle );
     cusolverDnCreate(&ctxt.cusolver_handle );
-
-    int lwork;
-
-    cusolverDnSgeqrf_bufferSize(
-        ctxt.cusolver_handle,
-        m,
-        NMIN,
-        A,
-        lda,
-        &lwork
-    );
-
-    float *work;
-    cudaMalloc( &work, lwork * sizeof(float) );
-
-    __half *hwork;
-	int lhwork = m*n;
-    cudaMalloc( &hwork, sizeof(__half) * lhwork );
-
+    
     qr( ctxt, m, n, A, m, R, ldr, work, lwork, hwork, lhwork );
 
-    cudaFree(work);
-    cudaFree(hwork);
     cublasDestroy(ctxt.cublas_handle);
     cusolverDnDestroy(ctxt.cusolver_handle);
 
