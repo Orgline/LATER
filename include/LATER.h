@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -8,6 +10,9 @@
 #include <cusolverDn.h>
 #include <cuda_runtime.h>
 
+#include <iostream>
+#include <fstream>
+#include <iomanip>
 
 /*
 These three functions are related with QR factorization
@@ -79,3 +84,21 @@ set a matrix to be an identity matrix
 
 __global__
 void setEye( int m, int n, float *a, int lda);
+
+template<typename T>
+void printMatrixDeviceBlock(char *path,int m,int n, T* A, int lda)
+{
+    std::ofstream file;
+    file.open(path);
+    float *Ah = new T[lda*n];
+    cudaMemcpy(Ah, A, sizeof(T)*lda*n, cudaMemcpyDeviceToHost);
+    file << std::setprecision(7);
+    for(int i=0; i<m; i++) {
+        for (int j=0; j<n; j++) {
+            file << Ah[i+j*lda];
+            if (j!=n-1) file << ' ';
+        }
+        file << std::endl;
+    }
+    delete[] Ah;
+}
