@@ -81,12 +81,12 @@ int main(int argc,char *argv[])
 
         if (checkFlag) {
 
-            printf("Orthogonality ");
+
             checkOtho(m, n, A, m);
 
             cudaMalloc(&dA,sizeof(float)*m*n);
             generateUniformMatrix(dA,m,n);
-            printf("Backward error ");
+
             checkResult(m, n, dA, m, A, m, R, n);
             cudaFree(dA);
         }
@@ -126,9 +126,13 @@ void checkResult(int m,int n,float* A,int lda, float *Q, int ldq, float *R, int 
     float normA = snorm(m,n,A);
     float alpha = 1.0;
     float beta = -1.0;
+    startTimer();
     sgemm(m,n,n,Q,ldq,R,ldr,A,lda,alpha,beta);
+    float ms = stopTimer();
+    printf("SGEMM m*n*k %d*%d*d takes %.0f (ms), exec rate %.0f GFLOPS\n",
+            m, n, n, 2.0*m*n*n/(ms*1e6));
     float normRes = snorm(m,n,A);
-    printf("||A-QR||/(||A||) = %.6e\n",normRes/normA);
+    printf("Backward error: ||A-QR||/(||A||) = %.6e\n",normRes/normA);
 }
 
 void sgemm(int m,int n,int k,float *dA,int lda, float *dB,int ldb,float *dC, int ldc,float alpha,float beta)
