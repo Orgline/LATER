@@ -53,7 +53,7 @@ void generateUniformMatrix(float *dA,int m,int n)
 {
     curandGenerator_t gen;
     curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
-    int seed = rand()%3000;
+    int seed = 3000;
 	curandSetPseudoRandomGeneratorSeed(gen, seed);
     curandGenerateUniform(gen,dA,m*n);
 }

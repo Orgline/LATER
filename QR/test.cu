@@ -1,5 +1,6 @@
 #include "LATER.h"
 #include "LATER_QR.h"
+#include <assert.h>
 
 #define NMIN 128
 
@@ -10,16 +11,27 @@ void checkResult(int m,int n,float* A,int lda, float *Q, int ldq, float *R, int 
 void sgemm(int m,int n,int k,float *dA,int lda, float *dB,int ldb,float *dC, int ldc,float alpha,float beta);
 void checkOtho(int,int,float*, int);
 
+bool checkFlag = false;
+
 int parseArguments(int argc,char *argv[])
 {
     algo = atoi(argv[1]);
     m = atoi(argv[2]);
     n = atoi(argv[3]);
+    for (int i=4; i<argc; i++) {
+        if(strcmp(argv[i], "-check") == 0) {
+            checkFlag = true;
+        }
+    }
     return 0;
 }
 
 int main(int argc,char *argv[])
 {
+    if (argc < 4) {
+        printf("Usage: test algo m n [options]\n");
+        printf("\t-check: enable checking the orthogonality and backward error\n");
+    }
     if(parseArguments(argc,argv)!=0)
     {
         return 0;
@@ -28,11 +40,12 @@ int main(int argc,char *argv[])
     cudaMalloc(&A,sizeof(float)*m*n);
     float *R;
     cudaMalloc(&R,sizeof(float)*n*n);
+
     generateUniformMatrix(A,m,n);
 
     float *dA;
-    cudaMalloc(&dA,sizeof(float)*m*n);
-    cudaMemcpy(dA,A,sizeof(float)*m*n,cudaMemcpyDeviceToDevice);
+//    cudaMalloc(&dA,sizeof(float)*m*n);
+//    cudaMemcpy(dA,A,sizeof(float)*m*n,cudaMemcpyDeviceToDevice);
 
     cudaCtxt ctxt {};
     cublasCreate(&ctxt.cublas_handle );
@@ -64,17 +77,45 @@ int main(int argc,char *argv[])
         float ms = stopTimer();
         printf("RGSQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
                 2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
-        
-        //printf("Orthogonality ");
-        //checkOtho(m,n,A,m);
 
-        //printf("Backward error ");
-        //checkResult(m,n,dA,m,A,m,R,n);
+        if (checkFlag) {
+            cudaMalloc(&dA,sizeof(float)*m*n);
+            generateUniformMatrix(dA,m,n);
+            printf("Orthogonality ");
+            checkOtho(m, n, A, m);
+
+            printf("Backward error ");
+            checkResult(m, n, dA, m, A, m, R, n);
+            cudaFree(dA);
+        }
+        cudaFree(R);
+    }
+
+    //reference implementation in cuSOLVER
+    {
+        generateUniformMatrix(A,m,n);
+        int lwork = 0;
+        auto status = cusolverDnSgeqrf_bufferSize(
+                ctxt.cusolver_handle, m, n, A, m, &lwork);
+        assert(CUSOLVER_STATUS_SUCCESS == status);
+        int *devInfo;
+        cudaMalloc((void**)&devInfo, sizeof(int));
+        float *d_work, *d_tau;
+        cudaMalloc((void**)&d_work, sizeof(float)*lwork);
+        cudaMalloc((void**)&d_tau, sizeof(float)*m);
+        startTimer();
+        status = cusolverDnSgeqrf( ctxt.cusolver_handle, m, n, A, m,
+                d_tau, d_work, lwork, devInfo);
+        assert(CUSOLVER_STATUS_SUCCESS == status);
+        float ms = stopTimer();
+        printf("CUSOLVER SGEQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms,
+               2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
+        free(d_work);
     }
 
     cudaFree(A);
-    cudaFree(R);
-    cudaFree(dA);
+//    cudaFree(R);
+//    cudaFree(dA);
     return 0;
 }
 
