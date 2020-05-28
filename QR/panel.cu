@@ -233,89 +233,81 @@ __inline__ __device__ float warpAllReduceSum(float val) {
 
 __global__ void mgs_kernel2(int m, int n, float *AA, int lda, float *RR, int ldr)
 {
-    if (n>32)
-    {
-        if (threadIdx.x+blockDim.x*blockIdx.x == 0)
-            printf("geqrf_tb_256x32: only n<=32 supported. current n=%d\n. Returning.", n);
-        return;
-    }
+
     int mm = m - blockIdx.x*256; // TB local number of rows
     mm = (mm<256) ? mm : 256;
 
     const int mnmin = (mm<n) ? mm : n;
 
-    float *A = &AA[blockIdx.x*256];
-    float *R = &RR[blockIdx.x*32];
+    //float *A = &AA[blockIdx.x*256];
+    //float *R = &RR[blockIdx.x*32];
     //load from global memory to shared memory
     __shared__ float As[256], Rs[32*32];
-    const int i = threadIdx.x;
-    const int j = threadIdx.y;
+
 #define ldrs  32
     //if(i==0 && j==0) printf("hello!\n");
     float Ar[8]; // register files
-//    for (int k=0; k<n; k++)
-//    {
-#pragma unroll
-        for (int l=0; l<8; l++) {
-            if (i+l*32 < mm && j < mnmin) {
-                Ar[l] = A[i+l*32 + j*lda];
-            }
+
+    // load block A into registers.
+#pragma unroll 4
+    for (int l = 0; l < 8; l++) {
+        if (threadIdx.x + l * 32 < mm && threadIdx.y < mnmin) {
+            Ar[l] = AA[blockIdx.x * 256 + threadIdx.x + l * 32 + threadIdx.y * lda];
         }
-//    }
+    }
+
     __syncthreads();
-    //if(i==0 && j==0) printf("hello!\n");
 
     for (int k=0; k<mnmin; k++) {
         float nu = 0; // acc for norm
-        //float nus[8];
-        if (j==k) {
-            //if(i==k) printf("iter k %d\n", k);
-#pragma unroll
+
+        if (threadIdx.y==k) {
+#pragma unroll 8
             for(int l=0; l<8; l++) {
-                nu +=  (i+l*32<mm) ? (Ar[l]*Ar[l]) : 0;
+                nu +=  (threadIdx.x+l*32<mm) ? (Ar[l]*Ar[l]) : 0;
             }
-            //nu = (nus[0]+nus[1]) + (nus[2]+nus[3]) + (nus[4]+nus[5]) + (nus[6]+nus[7]);
             float normx = sqrt((warpAllReduceSum(nu)));
-            if(i==k) {
+            if(threadIdx.x==k) {
                 Rs[k+k*ldrs] = normx;
-                //printf("iter %d column norm %.6f \n", k, normx);
             }
             float scale = 1.0f/normx;
-#pragma unroll
+#pragma unroll 8
             for(int l=0; l<8; l++) {
-                if(i+l*32<mm) {
+                if(threadIdx.x+l*32<mm) {
                     Ar[l] *= scale;
-                    As[i+l*32] = Ar[l];
+                    As[threadIdx.x+l*32] = Ar[l];
                 }
             }
         }
         __syncthreads();
         nu = 0;
-        if (j>k) {
-#pragma unroll
+        if (threadIdx.y>k) {
+#pragma unroll 8
             for (int l = 0; l < 8; l++) {
-                if (i+l*32<mm) {
-                    nu += (As[i + l * 32] * Ar[l]);
+                if (threadIdx.x+l*32<mm) {
+                    nu += (As[threadIdx.x + l * 32] * Ar[l]);
                 }
             }
             float scale = (warpAllReduceSum(nu));
-#pragma unroll
+#pragma unroll 8
             for (int l=0; l<8; l++) {
-                if (i+l*32<mm) {
-                    Ar[l] -= Ar[l] * scale;
+                if (threadIdx.x+l*32<mm) {
+                    Ar[l] -= As[threadIdx.x+l*32] * scale;
                 }
             }
-            if (i==k) Rs[k+j*ldrs] = scale;
+            if (threadIdx.x==k) Rs[k+threadIdx.y*ldrs] = scale;
         }
         __syncthreads();
     }
 
-//    for (int k=0; k<n; k++)
-//    {
-#pragma unroll
-        for (int l=0; l<8; l++) {
-            if (i+l*32 < mm && j < mnmin)  A[i+l*32 + j*lda] = Ar[l];
-        }
-        if (i<mnmin && j<mnmin) R[i+j*ldr] = (i<=j)? Rs[i+j*ldrs] : 0;
-//    }
+
+#pragma unroll 8
+    for (int l = 0; l < 8; l++) {
+        if (threadIdx.x + l * 32 < mm && threadIdx.y < mnmin)
+            AA[blockIdx.x * 256 + threadIdx.x + l * 32 + threadIdx.y * lda] = Ar[l];
+    }
+    if (threadIdx.x < mnmin && threadIdx.y < mnmin)
+        RR[blockIdx.x * 32 + threadIdx.x + threadIdx.y * ldr] =
+                (threadIdx.x <= threadIdx.y) ? Rs[threadIdx.x +threadIdx.y * ldrs]: 0;
+
 }
