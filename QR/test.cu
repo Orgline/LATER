@@ -34,7 +34,7 @@ int main(int argc,char *argv[])
     cudaMalloc(&dA,sizeof(float)*m*n);
     cudaMemcpy(dA,A,sizeof(float)*m*n,cudaMemcpyDeviceToDevice);
 
-    cudaCtxt ctxt;
+    cudaCtxt ctxt {};
     cublasCreate(&ctxt.cublas_handle );
     cusolverDnCreate(&ctxt.cusolver_handle );
 
