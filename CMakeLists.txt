@@ -56,8 +56,9 @@ find_library(
         ${CUBLAS_PATH}/lib/x64
         /usr/lib/x86_64-linux-gnu)
 
-add_subdirectory(./QR)
+add_subdirectory(QR)
 add_subdirectory(util)
+add_subdirectory(test)
 
 message("CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 include_directories(
