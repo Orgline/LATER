@@ -129,8 +129,8 @@ void checkResult(int m,int n,float* A,int lda, float *Q, int ldq, float *R, int 
     startTimer();
     sgemm(m,n,n,Q,ldq,R,ldr,A,lda,alpha,beta);
     float ms = stopTimer();
-    printf("SGEMM m*n*k %d*%d*d takes %.0f (ms), exec rate %.0f GFLOPS\n",
-            m, n, n, 2.0*m*n*n/(ms*1e6));
+    printf("SGEMM m*n*k %d*%d*%d takes %.0f (ms), exec rate %.0f GFLOPS\n",
+            m, n, n, ms, 2.0*m*n*n/(ms*1e6));
     float normRes = snorm(m,n,A);
     printf("Backward error: ||A-QR||/(||A||) = %.6e\n",normRes/normA);
 }
