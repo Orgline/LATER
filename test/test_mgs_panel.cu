@@ -24,6 +24,7 @@ int main(int argc, char* argv[])
         //mgs_kernel<<<1, 256>>>(m, n, A,  lda, R, n);
         mgs_kernel2<<<1, blockdim>>>(m, n, A, lda, R, n);
         float ms = stopTimer();
+        gpuErrchk( cudaPeekAtLastError() );
         printf("256*32 panel2 block takes %.3f (ms)\n", ms);
     }
     printMatrixDeviceBlock("Q.csv", m, n, A, lda);

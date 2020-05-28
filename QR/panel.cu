@@ -3,7 +3,6 @@
 #include "../include/cub-1.8.0/cub-1.8.0/cub/cub.cuh"
 
 
-
 void mgs_caqr_panel_256x128(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work)
 {
     if (m<256 || n!=128) 
@@ -248,30 +247,35 @@ __global__ void mgs_kernel2(int m, int n, float *AA, int lda, float *RR, int ldr
     float *A = &AA[blockIdx.x*256];
     float *R = &RR[blockIdx.x*32];
     //load from global memory to shared memory
-    __shared__ float As[256*32], Rs[32*32];
+    __shared__ float As[256], Rs[32*32];
     const int i = threadIdx.x;
     const int j = threadIdx.y;
-    const int ldas = 256, ldrs = 32;
-
-    for (int k=0; k<n; k++)
-    {
+#define ldrs  32
+    //if(i==0 && j==0) printf("hello!\n");
+    float Ar[8]; // register files
+//    for (int k=0; k<n; k++)
+//    {
 #pragma unroll
         for (int l=0; l<8; l++) {
-            if (i+l*32 < mm) As[i+l*32 + k*ldas] = A[i+l*32 + k*lda];
+            if (i+l*32 < mm && j < mnmin) {
+                Ar[l] = A[i+l*32 + j*lda];
+            }
         }
-    }
+//    }
     __syncthreads();
-
+    //if(i==0 && j==0) printf("hello!\n");
 
     for (int k=0; k<mnmin; k++) {
         float nu = 0; // acc for norm
+        //float nus[8];
         if (j==k) {
+            //if(i==k) printf("iter k %d\n", k);
 #pragma unroll
             for(int l=0; l<8; l++) {
-                nu += (i+l*32<mm) ? (As[i+l*32+j*ldas]*As[i+l*32+j*ldas]) : 0;
+                nu +=  (i+l*32<mm) ? (Ar[l]*Ar[l]) : 0;
             }
-            float normxsqr = (warpAllReduceSum(nu));
-            float normx = sqrt(normxsqr);
+            //nu = (nus[0]+nus[1]) + (nus[2]+nus[3]) + (nus[4]+nus[5]) + (nus[6]+nus[7]);
+            float normx = sqrt((warpAllReduceSum(nu)));
             if(i==k) {
                 Rs[k+k*ldrs] = normx;
                 //printf("iter %d column norm %.6f \n", k, normx);
@@ -279,7 +283,10 @@ __global__ void mgs_kernel2(int m, int n, float *AA, int lda, float *RR, int ldr
             float scale = 1.0f/normx;
 #pragma unroll
             for(int l=0; l<8; l++) {
-                if(i+l*32<mm) As[i+l*32+j*ldas] *= scale;
+                if(i+l*32<mm) {
+                    Ar[l] *= scale;
+                    As[i+l*32] = Ar[l];
+                }
             }
         }
         __syncthreads();
@@ -288,15 +295,14 @@ __global__ void mgs_kernel2(int m, int n, float *AA, int lda, float *RR, int ldr
 #pragma unroll
             for (int l = 0; l < 8; l++) {
                 if (i+l*32<mm) {
-                    nu += (As[i + l * 32 + k * ldas] * As[i + l * 32 + j * ldas]);
-
+                    nu += (As[i + l * 32] * Ar[l]);
                 }
             }
             float scale = (warpAllReduceSum(nu));
 #pragma unroll
             for (int l=0; l<8; l++) {
                 if (i+l*32<mm) {
-                    As[i+l*32+j*ldas] -= As[i+l*32+k*ldas] * scale;
+                    Ar[l] -= Ar[l] * scale;
                 }
             }
             if (i==k) Rs[k+j*ldrs] = scale;
@@ -304,12 +310,12 @@ __global__ void mgs_kernel2(int m, int n, float *AA, int lda, float *RR, int ldr
         __syncthreads();
     }
 
-    for (int k=0; k<n; k++)
-    {
+//    for (int k=0; k<n; k++)
+//    {
 #pragma unroll
         for (int l=0; l<8; l++) {
-            if (i+l*32 < mm)  A[i+l*32 + k*lda] = As[i+l*32 + k*ldas];
+            if (i+l*32 < mm && j < mnmin)  A[i+l*32 + j*lda] = Ar[l];
         }
-        R[i+j*ldr] = (i<=j)? Rs[i+j*ldrs] : 0;
-    }
+        if (i<mnmin && j<mnmin) R[i+j*ldr] = (i<=j)? Rs[i+j*ldrs] : 0;
+//    }
 }
