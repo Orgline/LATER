@@ -9,10 +9,12 @@ Linear Algebra on TEnsoRcore
 ## Build
 
 ```
-$ mkdir build && cd build
+$ git clone git@github.com:Orgline/LATER.git
+$ cd LATER && mkdir build && cd build
 $ export CUDACXX=/usr/local/cuda-10.1/bin/nvcc
 $ export CUDA_PATH=/usr/local/cuda-10.1
 $ cmake ..
+$ cmake --build .
 ```
 
 Change the CUDACXX and CUDA_PATH environment variables to match
