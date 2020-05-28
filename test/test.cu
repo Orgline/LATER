@@ -80,11 +80,12 @@ int main(int argc,char *argv[])
                 2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
 
         if (checkFlag) {
-            cudaMalloc(&dA,sizeof(float)*m*n);
-            generateUniformMatrix(dA,m,n);
+
             printf("Orthogonality ");
             checkOtho(m, n, A, m);
 
+            cudaMalloc(&dA,sizeof(float)*m*n);
+            generateUniformMatrix(dA,m,n);
             printf("Backward error ");
             checkResult(m, n, dA, m, A, m, R, n);
             cudaFree(dA);
