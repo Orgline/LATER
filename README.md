@@ -23,3 +23,7 @@ your system's CUDA installation directory.
 $ cd QR
 $ ./test_qr 1 16384 16384
 
+## Tested GPUs and Platforms
+* V100 (on RHEL Linux, CUDA 10.1)
+* Titan V (on Ubuntu 18.04 Linux, CUDA 10.1)
+* GeForce RTX 2060 (on Windows 10, CUDA 10.2)
