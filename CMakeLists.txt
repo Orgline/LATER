@@ -57,7 +57,7 @@ find_library(
         /usr/lib/x86_64-linux-gnu)
 
 add_subdirectory(./QR)
-add_subdirectory(./appendix)
+add_subdirectory(util)
 
 message("CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 include_directories(

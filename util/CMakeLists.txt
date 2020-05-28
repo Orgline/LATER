@@ -1,4 +1,4 @@
-add_library(utility appendix.cu ../include/LATER.h)
+add_library(utility util.cu ../include/LATER.h)
 
 target_include_directories(utility PUBLIC ../include ./include)
 
