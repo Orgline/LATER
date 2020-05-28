@@ -111,7 +111,9 @@ int main(int argc,char *argv[])
         float ms = stopTimer();
         printf("CUSOLVER SGEQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms,
                2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
-        free(d_work);
+        cudaFree(d_work);
+        cudaFree(d_tau);
+        cudaFree(devInfo);
     }
 
     cudaFree(A);
