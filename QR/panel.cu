@@ -312,20 +312,4 @@ __global__ void mgs_kernel2(int m, int n, float *AA, int lda, float *RR, int ldr
         }
         R[i+j*ldr] = (i<=j)? Rs[i+j*ldrs] : 0;
     }
-#pragma unroll
-    for (int j=0; j<n; j++)
-    {
-        if( i<mm)
-            A[i+j*lda] = As[i+j*ldas];
-        if (i<=j)
-        {
-            if (i<mm && i<n)
-                R[i+j*ldr] = Rs[i+j*ldrs];
-        }
-        else
-        {
-            if (i<mm && i<n)
-                R[i+j*ldr] = 0;
-        }
-    }
 }
