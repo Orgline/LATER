@@ -30,7 +30,8 @@ int main(int argc,char *argv[])
 {
     if (argc < 4) {
         printf("Usage: test algo m n [options]\n");
-        printf("\t-check: enable checking the orthogonality and backward error\n");
+        printf("Options:\n\t-check: enable checking the orthogonality and backward error\n");
+        return 0;
     }
     if(parseArguments(argc,argv)!=0)
     {

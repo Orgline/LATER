@@ -21,10 +21,10 @@ Change the CUDACXX and CUDA_PATH environment variables to match
 your system's CUDA installation directory. 
 
 ## Run tests
-
-$ cd QR
-$ ./test_qr 1 16384 16384
-
+```
+$ cd test
+$ ./test_qr 1 16384 16384 -check
+```
 ## Tested GPUs and Platforms
 * V100 (on RHEL Linux, CUDA 10.1)
 * Titan V (on Ubuntu 18.04 Linux, CUDA 10.1)
