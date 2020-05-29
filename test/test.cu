@@ -28,7 +28,8 @@ std::string getCompilerName()
     return "Visual Studio " + std::to_string(_MSC_VER);
 #elif __GNUC__
     std::stringstream ss;
-    return ss << "GCC " <<  __GNUC__ << "." << __GNUC_MINOR__ << "." << __GNUC_PATCHLEVEL__;
+    ss << "GCC " <<  __GNUC__ << "." << __GNUC_MINOR__ << "." << __GNUC_PATCHLEVEL__;
+    return ss.str();
 #elif __clang__
     return "Clang";
 #endif
