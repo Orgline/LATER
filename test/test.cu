@@ -37,6 +37,28 @@ int main(int argc,char *argv[])
     {
         return 0;
     }
+    {
+        cudaDeviceProp prop;
+
+        cudaGetDeviceProperties(&prop, 0);
+        int mpcount, s2dratio;
+        cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, 0);
+        cudaDeviceGetAttribute(&s2dratio, cudaDevAttrSingleToDoublePrecisionPerfRatio, 0);
+        cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, 0);
+        cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, 0);
+        cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, 0);
+
+        std::cout << "=== Device information ===" << std::endl;
+        std::cout << "Device name: " << prop.name << std::endl;
+        std::cout << "GMem " << prop.totalGlobalMem << std::endl;
+        std::cout << "SMem per block " << prop.sharedMemPerBlock << std::endl;
+        std::cout << "SMem per MP " << prop.sharedMemPerMultiprocessor << std::endl;
+        std::cout << "Regs per block " << prop.regsPerBlock << std::endl;
+        std::cout << "Clock rate " << prop.clockRate << std::endl;
+        std::cout << "L2 $ size " << prop.l2CacheSize << std::endl;
+        std::cout << "# MP " << mpcount << std::endl;
+        std::cout << "single-double perf ratio " << s2dratio << std::endl;
+    }
     float *A;
     cudaMalloc(&A,sizeof(float)*m*n);
     float *R;
