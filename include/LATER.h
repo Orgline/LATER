@@ -79,3 +79,16 @@ set a matrix to be an identity matrix
 
 __global__
 void setEye( int m, int n, float *a, int lda);
+
+/*
+Perform substraction dA-dB on GPU
+*/
+
+void sSubstract(cublasHandle_t handle, int m,int n, float* dA,int lda, float* dB, int ldb);
+
+/*
+Copy a block of a matrix to another block of matrix
+*/
+
+__global__
+void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb );

@@ -81,3 +81,28 @@ void setEye( int m, int n, float *a, int lda)
 			a[i+j*lda] = 0;
 	}
 }
+
+void sSubstract(cublasHandle_t handle, int m,int n, float* dA,int lda, float* dB, int ldb)
+{
+
+    float snegone = -1.0;
+    float sone = 1.0;
+    cublasSgeam(handle,
+        CUBLAS_OP_N, CUBLAS_OP_N,
+        m, n,
+        &snegone,
+        dA, lda,
+        &sone,
+        dB, ldb,
+        dA, lda);
+}
+
+__global__
+void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb )
+{
+	int i = threadIdx.x + blockDim.x * blockIdx.x;
+	int j = threadIdx.y + blockDim.y * blockIdx.y;
+	if (i<m && j<n) {
+		db[i+j*ldb] = da[i+j*lda];
+	}
+}

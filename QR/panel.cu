@@ -228,6 +228,10 @@ __global__ void mgs_kernel(int m, int n, float *AA, int lda, float *RR, int ldr)
     }
 }
 
+/*
+This part serves later_rhouqr
+*/
+
 __inline__ __device__ float warpReductionSum(float val) 
 {
     for (int offset = warpSize/2; offset > 0; offset /= 2) 
@@ -256,7 +260,22 @@ void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
     int NB = (m+M-1)/M;
 	int ldwork = NB*N; 
     int mm = NB*N; 
-    
+    hou_kernel<M,N,NT><<<NB,blockdim>>>(m, n, A, lda, work, ldwork);
+    hou_caqr_panel<M,N,NT>( ctxt, mm, n, work, ldwork, R, ldr,  work+ldwork*n );
+
+    float sone = 1.0, szero = 0.0;
+    cublasSgemmStridedBatched(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
+        M, N, N,
+        &sone, A, lda, M,
+        work, ldwork, N,
+        &szero, A,lda, M,
+        m/M);
+    mm = m%M;
+    if (mm>0) {
+        cublasSgemm(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
+                mm, N, N, &sone, &A[m/M*M], lda, &work[m/M*N], ldwork, 
+                &szero, &A[m/M*M], lda);
+    }
 }
 
 template<int M, int N, int NT>
