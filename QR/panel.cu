@@ -290,7 +290,7 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
     float *A = &AA[blockIdx.x*M];
     float *R = &RR[blockIdx.x*N];
     __shared__ float As[M*N], Rs[N];
-    const int ldas = M, ldrs = N; 
+    const int ldas = M/*, ldrs = N*/; 
 
     float acc0, acc1, acc2, acc3, acc4,acc5, acc6, acc7;
     const int i=threadIdx.x, j=threadIdx.y;
