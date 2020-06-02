@@ -390,3 +390,6 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
 
 
 }
+
+template
+void hou_caqr_panel<256,32,512>( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work);
