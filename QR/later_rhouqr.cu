@@ -21,6 +21,8 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
 
 void reconstructY(cudaCtxt ctxt, int m,int n, float* dA, float *dU, int lda);
 
+void checkError(int m,int n, float *A, int lda, float *W, int ldw, float *Y, int ldy , float *R, int ldr);
+
 void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U)
 {
     printf("Function rhouqr\n");
@@ -28,6 +30,7 @@ void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
     cudaCtxt ctxt;
     cublasCreate( & ctxt.cublas_handle );
     cusolverDnCreate( & ctxt.cusolver_handle );
+
 
     qr(ctxt, m, n, A, lda, W, ldw, R, ldr, work, lwork, hwork, lhwork, U);
     
@@ -60,7 +63,7 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
 
         reconstructY(ctxt,m,n,A,U,lda);
 
-        loat sone = 1.0;
+        float sone = 1.0;
 
         cublasStrsm(ctxt.cublas_handle,
             CUBLAS_SIDE_RIGHT,  CUBLAS_FILL_MODE_LOWER,
@@ -179,9 +182,8 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
             &sone, W+ldw/2*n, CUDA_R_32F, ldw, CUDA_R_32F,
             CUBLAS_GEMM_DEFAULT_TENSOR_OP
         );
-
-        return;
     }
+    return;
 }
 
 // get U from LU factorization
@@ -214,7 +216,7 @@ void getL(int m, int n, float *a, int lda)
 	}
 }
 
-void reconstructY(cudaCtxt ctxt, int m,int n, float* dA, float *dU, int lda);
+void reconstructY(cudaCtxt ctxt, int m,int n, float* dA, float *dU, int lda)
 {
     int *d_info = NULL; /* error info */
     int  lwork = 0;     /* size of workspace */
@@ -257,4 +259,81 @@ void reconstructY(cudaCtxt ctxt, int m,int n, float* dA, float *dU, int lda);
         dU, n,
         dA+n, lda
     );
+}
+
+__global__
+void clear_tri(char uplo, int m, int n, float *a, int lda)
+{
+	int i = threadIdx.x + blockDim.x * blockIdx.x;
+	int j = threadIdx.y + blockDim.y * blockIdx.y;
+	if (i<m && j<n) {
+		if (uplo == 'l') {
+			if (i>j) {
+				a[i+j*lda] = 0;
+			}
+        } 
+        else
+        {
+            if (i<j)
+                a[i+j*lda] = 0;
+		}
+	}
+}
+
+void checkError(int m,int n, float *A, int lda, float *W, int ldw, float *Y, int ldy , float *R, int ldr)
+{
+    float *I;
+    cudaMalloc(&I,sizeof(float)*n*n);
+      
+	dim3 grid96( (n+1)/32, (n+1)/32 );
+	dim3 block96( 32, 32 );
+    setEye<<<grid96,block96>>>( n, n, I, n);
+    float snegone = -1.0;
+    float sone  = 1.0;
+
+    float *WI;
+    cudaMalloc(&WI, sizeof(float)*m*n);
+    dim3 grid1( (m+1)/32, (n+1)/32 );
+	dim3 block1( 32, 32 );
+    setEye<<<grid1,block1>>>( m, n, WI, m);
+
+    clear_tri<<<grid96,block96>>>('l',n,n,R,ldr);   
+    
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    cublasGemmEx(handle,CUBLAS_OP_N,CUBLAS_OP_T,m,n,n,
+        &snegone,W,CUDA_R_32F, ldw, Y, CUDA_R_32F, ldy,
+        &sone, WI, CUDA_R_32F, m, CUDA_R_32F,
+        CUBLAS_GEMM_DEFAULT
+    );
+
+    
+    
+    float normWI= snorm(m,n,WI);
+    printf("normWI = %f\n", normWI);
+    
+
+    cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, m,
+        &snegone, WI, CUDA_R_32F, m, WI, CUDA_R_32F, m,
+        &sone, I, CUDA_R_32F, n, CUDA_R_32F,
+        CUBLAS_GEMM_DEFAULT);
+    
+    float normRes = snorm(n,n,I);
+   
+    printf("||I-Q'*Q||/N = %.6e\n",normRes/n);
+
+    //printMatrixDeviceBlock("AA.csv",m,n,A,lda);
+    float normA = snorm(m,n,A);
+    printf("normA = %f\n", normA);
+
+    cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, n,
+        &snegone, WI, CUDA_R_32F, m, R, CUDA_R_32F, ldr,
+        &sone, A, CUDA_R_32F, lda, CUDA_R_32F,
+        CUBLAS_GEMM_DEFAULT
+        );
+    normRes = snorm(m,n,A);
+    printf("||A-QR||/||A|| = %.6e\n",normRes/normA);
+    cudaFree(I);
+    cudaFree(WI);
+    cublasDestroy(handle);
 }
