@@ -7,7 +7,10 @@
 int algo;
 int m,n;
 
+//for rgsqrf
 void checkResult(int m,int n,float* A,int lda, float *Q, int ldq, float *R, int ldr);
+//for rhouqr
+void checkResult(int m,int n, float *A, int lda, float *W, int ldw, float *Y, int ldy , float *R, int ldr);
 void sgemm(int m,int n,int k,float *dA,int lda, float *dB,int ldb,float *dC, int ldc,float alpha,float beta);
 void checkOtho(int,int,float*, int);
 
@@ -89,7 +92,25 @@ int main(int argc,char *argv[])
             checkResult(m, n, dA, m, A, m, R, n);
             cudaFree(dA);
         }
-        
+    }
+
+    if (algo == 2)
+    {
+        printf("Perform RHOUQR\nmatrix size %d*%d\n",m,n);
+
+        float *U;
+        cudaMalloc(&U,sizeof(float)*32*32);
+        float *W;
+        cudaMalloc(&W,sizeof(float)*m*n);
+
+        startTimer();
+        later_rhouqr(ctxt, m, n, A, lda, W, lda, R, ldr, work, lwork, hwork, lhwork, U);
+        float ms = stopTimer();
+        printf("RHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
+                2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
+
+        cudaFree(U);
+        cudaFree(W);
     }
 
     //reference implementation in cuSOLVER
@@ -173,4 +194,62 @@ void checkOtho(int m,int n,float *Q, int ldq)
     printf("||I-Q'*Q||/N = %.6e\n",normRes/n);
     cudaFree(I);
     cublasDestroy(handle);
+}
+
+
+void checkResult(int m,int n, float *A, int lda, float *W, int ldw, float *Y, int ldy , float *R, int ldr)
+{
+    float *I;
+    cudaMalloc(&I,sizeof(float)*n*n);
+      
+	dim3 grid96( (n+1)/32, (n+1)/32 );
+	dim3 block96( 32, 32 );
+    seteye<<<grid96,block96>>>( n, n, I, n);
+    float snegone = -1.0;
+    float sone  = 1.0;
+
+    float *WI;
+    cudaMalloc(&WI, sizeof(float)*m*n);
+    dim3 grid1( (m+1)/32, (n+1)/32 );
+	dim3 block1( 32, 32 );
+    set_eye<<<grid1,block1>>>( m, n, WI, m);
+
+    clear_tri<<<grid96,block96>>>('l',n,n,R,ldr);   
+    
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    cublasGemmEx(handle,CUBLAS_OP_N,CUBLAS_OP_T,m,n,n,
+        &snegone,W,CUDA_R_32F, ldw, Y, CUDA_R_32F, ldy,
+        &sone, WI, CUDA_R_32F, m, CUDA_R_32F,
+        CUBLAS_GEMM_DEFAULT
+    );
+
+    
+    
+    float normWI= snorm(m,n,WI);
+    printf("normWI = %f\n", normWI);
+    
+
+    cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, m,
+        &snegone, WI, CUDA_R_32F, m, WI, CUDA_R_32F, m,
+        &sone, I, CUDA_R_32F, n, CUDA_R_32F,
+        CUBLAS_GEMM_DEFAULT);
+    
+    float normRes = snorm(n,n,I);
+   
+    printf("||I-Q'*Q||/N = %.6e\n",normRes/n);
+
+    //printMatrixDeviceBlock("AA.csv",m,n,A,lda);
+    float normA = snorm(m,n,A);
+    printf("normA = %f\n", normA);
+
+    cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, n,
+        &snegone, WI, CUDA_R_32F, m, R, CUDA_R_32F, ldr,
+        &sone, A, CUDA_R_32F, lda, CUDA_R_32F,
+        CUBLAS_GEMM_DEFAULT
+        );
+    normRes = snorm(m,n,A);
+    printf("||A-QR||/||A|| = %.6e\n",normRes/normA);
+    cudaFree(I);
+    cudaFree(WI);
 }
