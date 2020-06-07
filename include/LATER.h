@@ -92,3 +92,9 @@ Copy a block of a matrix to another block of matrix
 
 __global__
 void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb );
+
+/*
+Clear upper ('u') or lower ('l') part of a matrix
+*/
+__global__
+void clearTri(char uplo, int m, int n, float *a, int lda);

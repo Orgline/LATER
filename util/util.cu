@@ -106,3 +106,22 @@ void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb )
 		db[i+j*ldb] = da[i+j*lda];
 	}
 }
+
+__global__
+void clearTri(char uplo, int m, int n, float *a, int lda)
+{
+	int i = threadIdx.x + blockDim.x * blockIdx.x;
+	int j = threadIdx.y + blockDim.y * blockIdx.y;
+	if (i<m && j<n) {
+		if (uplo == 'l') {
+			if (i>j) {
+				a[i+j*lda] = 0;
+			}
+        } 
+        else
+        {
+            if (i<j)
+                a[i+j*lda] = 0;
+		}
+	}
+}
