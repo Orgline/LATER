@@ -89,7 +89,7 @@ int main(int argc,char *argv[])
             checkResult(m, n, dA, m, A, m, R, n);
             cudaFree(dA);
         }
-        cudaFree(R);
+        
     }
 
     //reference implementation in cuSOLVER
@@ -117,6 +117,9 @@ int main(int argc,char *argv[])
     }
 
     cudaFree(A);
+    cudaFree(R);
+    cudaFree(work);
+    cudaFree(hwork);
 //    cudaFree(R);
 //    cudaFree(dA);
     return 0;
