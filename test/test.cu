@@ -104,7 +104,7 @@ int main(int argc,char *argv[])
         cudaMalloc(&W,sizeof(float)*m*n);
 
         startTimer();
-        later_rhouqr(ctxt, m, n, A, lda, W, lda, R, ldr, work, lwork, hwork, lhwork, U);
+        later_rhouqr(m, n, A, m, W, m, R, n, work, lwork, hwork, lhwork, U);
         float ms = stopTimer();
         printf("RHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
                 2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
@@ -204,7 +204,7 @@ void checkResult(int m,int n, float *A, int lda, float *W, int ldw, float *Y, in
       
 	dim3 grid96( (n+1)/32, (n+1)/32 );
 	dim3 block96( 32, 32 );
-    seteye<<<grid96,block96>>>( n, n, I, n);
+    setEye<<<grid96,block96>>>( n, n, I, n);
     float snegone = -1.0;
     float sone  = 1.0;
 
@@ -212,9 +212,9 @@ void checkResult(int m,int n, float *A, int lda, float *W, int ldw, float *Y, in
     cudaMalloc(&WI, sizeof(float)*m*n);
     dim3 grid1( (m+1)/32, (n+1)/32 );
 	dim3 block1( 32, 32 );
-    set_eye<<<grid1,block1>>>( m, n, WI, m);
+    setEye<<<grid1,block1>>>( m, n, WI, m);
 
-    clear_tri<<<grid96,block96>>>('l',n,n,R,ldr);   
+    clearTri<<<grid96,block96>>>('l',n,n,R,ldr);   
     
     cublasHandle_t handle;
     cublasCreate(&handle);
