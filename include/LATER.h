@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -8,6 +10,9 @@
 #include <cusolverDn.h>
 #include <cuda_runtime.h>
 
+#include <iostream>
+#include <fstream>
+#include <iomanip>
 
 /*
 These three functions are related with QR factorization
@@ -20,7 +25,7 @@ bhouqr: block Householder QR factorization
 */
 void later_rgsqrf(int m, int n, float* A, int lda, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork);
 
-void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U);
+void later_rhouqr(int m, int n, float* A, int lda, float* R, int ldr);
 
 void later_bhouqr(int m, int n, float* A, int lda, float* R, int ldr);
 
@@ -80,21 +85,30 @@ set a matrix to be an identity matrix
 __global__
 void setEye( int m, int n, float *a, int lda);
 
-/*
-Perform substraction dA-dB on GPU
-*/
+template<typename T>
+void printMatrixDeviceBlock(char *path,int m,int n, T* A, int lda)
+{
+    std::ofstream file;
+    file.open(path);
+    float *Ah = new T[lda*n];
+    cudaMemcpy(Ah, A, sizeof(T)*lda*n, cudaMemcpyDeviceToHost);
+    file << std::setprecision(7);
+    for(int i=0; i<m; i++) {
+        for (int j=0; j<n; j++) {
+            file << Ah[i+j*lda];
+            if (j!=n-1) file << ' ';
+        }
+        file << std::endl;
+    }
+    delete[] Ah;
+}
 
-void sSubstract(cublasHandle_t handle, int m,int n, float* dA,int lda, float* dB, int ldb);
-
-/*
-Copy a block of a matrix to another block of matrix
-*/
-
-__global__
-void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb );
-
-/*
-Clear upper ('u') or lower ('l') part of a matrix
-*/
-__global__
-void clearTri(char uplo, int m, int n, float *a, int lda);
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+    if (code != cudaSuccess)
+    {
+        fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
