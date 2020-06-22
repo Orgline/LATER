@@ -1,5 +1,6 @@
 # LATER
-Linear Algebra on TEnsoRcore
+Linear Algebra on TEnsoRcore;
+see http://www2.cs.uh.edu/~panruowu/later.html
 
 ## Prerequisites
 
