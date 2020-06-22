@@ -364,141 +364,6 @@ void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
     }
 }
 
-__inline__ __device__ float warpAllReduceSum(float val) {
-    for (int mask = warpSize/2; mask > 0; mask /= 2)
-        val += __shfl_xor_sync(0xffffffff, val, mask);
-    return val;
-}
-
-__global__ void mgs_kernel2(int m, int n, float *AA, int lda, float *RR, int ldr) {
-
-    int mm = m - blockIdx.x * 256; // TB local number of rows
-    mm = (mm < 256) ? mm : 256;
-
-    const int mnmin = (mm < n) ? mm : n;
-
-    //float *A = &AA[blockIdx.x*256];
-    //float *R = &RR[blockIdx.x*32];
-    //load from global memory to shared memory
-    __shared__ float As[256], Rs[32 * 32];
-
-#define ldrs  32
-    //if(i==0 && j==0) printf("hello!\n");
-    float Ar[8]; // register files
-
-    // load block A into registers.
-#pragma unroll 4
-    for (int l = 0; l < 8; l++) {
-        if (threadIdx.x + l * 32 < mm && threadIdx.y < mnmin) {
-            Ar[l] = AA[blockIdx.x * 256 + threadIdx.x + l * 32 + threadIdx.y * lda];
-        }
-    }
-
-    __syncthreads();
-
-    for (int k = 0; k < mnmin; k++) {
-        float nu = 0; // acc for norm
-
-        if (threadIdx.y == k) {
-#pragma unroll 8
-            for (int l = 0; l < 8; l++) {
-                nu += (threadIdx.x + l * 32 < mm) ? (Ar[l] * Ar[l]) : 0;
-            }
-            float normx = sqrt((warpAllReduceSum(nu)));
-            if (threadIdx.x == k) {
-                Rs[k + k * ldrs] = normx;
-            }
-            float scale = 1.0f / normx;
-#pragma unroll 8
-            for (int l = 0; l < 8; l++) {
-                if (threadIdx.x + l * 32 < mm) {
-                    Ar[l] *= scale;
-                    As[threadIdx.x + l * 32] = Ar[l];
-                }
-            }
-        }
-        __syncthreads();
-        nu = 0;
-        if (threadIdx.y > k) {
-#pragma unroll 8
-            for (int l = 0; l < 8; l++) {
-                if (threadIdx.x + l * 32 < mm) {
-                    nu += (As[threadIdx.x + l * 32] * Ar[l]);
-                }
-            }
-            float scale = (warpAllReduceSum(nu));
-#pragma unroll 8
-            for (int l = 0; l < 8; l++) {
-                if (threadIdx.x + l * 32 < mm) {
-                    Ar[l] -= As[threadIdx.x + l * 32] * scale;
-                }
-            }
-            if (threadIdx.x == k) Rs[k + threadIdx.y * ldrs] = scale;
-        }
-        __syncthreads();
-    }
-
-
-#pragma unroll 8
-    for (int l = 0; l < 8; l++) {
-        if (threadIdx.x + l * 32 < mm && threadIdx.y < mnmin)
-            AA[blockIdx.x * 256 + threadIdx.x + l * 32 + threadIdx.y * lda] = Ar[l];
-    }
-    if (threadIdx.x < mnmin && threadIdx.y < mnmin)
-        RR[blockIdx.x * 32 + threadIdx.x + threadIdx.y * ldr] =
-                (threadIdx.x <= threadIdx.y) ? Rs[threadIdx.x + threadIdx.y * ldrs] : 0;
-
-}
-/*
-This part serves later_rhouqr
-*/
-
-__inline__ __device__ float warpReductionSum(float val)
-{
-    for (int offset = warpSize/2; offset > 0; offset /= 2)
-        val += __shfl_down_sync(0xffffffff, val, offset);
-    return val;
-}
-
-__inline__ __device__ float warpAllReduceSum(float val) {
-    for (int mask = warpSize/2; mask > 0; mask /= 2)
-        val += __shfl_xor_sync(0xffffffff, val, mask);
-    return val;
-}
-
-
-template<int M, int N, int NT>
-void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work)
-{
-    dim3 blockdim(32, N);
-    if ( m <= M ) {
-        hou_kernel<M, N, NT><<<1,blockdim>>>(m, n, A, lda, R, ldr);
-        return;
-    }
-    if ( (m-m/M*M)%N != 0) {
-        printf("Error: m must be i*%d + j*%d\n", M, N);
-    }
-    int NB = (m+M-1)/M;
-    int ldwork = NB*N;
-    int mm = NB*N;
-    hou_kernel<M,N,NT><<<NB,blockdim>>>(m, n, A, lda, work, ldwork);
-    hou_caqr_panel<M,N,NT>( ctxt, mm, n, work, ldwork, R, ldr,  work+ldwork*n );
-
-    float sone = 1.0, szero = 0.0;
-    cublasSgemmStridedBatched(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
-                              M, N, N,
-                              &sone, A, lda, M,
-                              work, ldwork, N,
-                              &szero, A,lda, M,
-                              m/M);
-    mm = m%M;
-    if (mm>0) {
-        cublasSgemm(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
-                    mm, N, N, &sone, &A[m/M*M], lda, &work[m/M*N], ldwork,
-                    &szero, &A[m/M*M], lda);
-    }
-}
-
 template<int M, int N, int NT>
 __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr )
 {
@@ -611,6 +476,7 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
 
 
 }
+
 
 template
 void hou_caqr_panel<256,32,512>( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work);

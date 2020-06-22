@@ -1,4 +1,4 @@
-add_executable(test_qr test.cu)
+add_executable(test_qr test_qr.cu)
 set_property(TARGET test_qr
         PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 

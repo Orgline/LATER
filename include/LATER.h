@@ -25,7 +25,7 @@ bhouqr: block Householder QR factorization
 */
 void later_rgsqrf(int m, int n, float* A, int lda, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork);
 
-void later_rhouqr(int m, int n, float* A, int lda, float* R, int ldr);
+void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U);
 
 void later_bhouqr(int m, int n, float* A, int lda, float* R, int ldr);
 
@@ -112,3 +112,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         if (abort) exit(code);
     }
 }
+
+// utilities
+__global__ void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb );
+void sSubstract(cublasHandle_t handle, int m,int n, float* dA,int lda, float* dB, int ldb);
+__global__ void clearTri(char uplo, int m, int n, float *a, int lda);
