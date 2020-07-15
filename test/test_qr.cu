@@ -177,6 +177,14 @@ int main(int argc,char *argv[])
         printf("RHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
                 2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
 
+        if(checkFlag)
+        {
+            cudaMalloc(&dA,sizeof(float)*m*n);
+            generateUniformMatrix(dA,m,n);
+            checkResult( m, n, dA, m, W, m, A, m , R, n );
+            cudaFree(dA);
+        }
+
         cudaFree(U);
         cudaFree(W);
     }
