@@ -3,9 +3,13 @@ project(later LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 14)
 
-
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 message("\tCUDA_PATH: $ENV{CUDA_PATH}")
 message("\tCUTLASS_DIR: ${CUTLASS_DIR}")
+find_package(MAGMA)
+if( MAGMA_FOUND ) 
+    add_definitions(-DMAGMA)
+endif( MAGMA_FOUND )
 
 find_library(
         CUBLAS_LIBRARY cublas
@@ -59,6 +63,7 @@ find_library(
 add_subdirectory(QR)
 add_subdirectory(util)
 add_subdirectory(test)
+add_subdirectory(benchmark)
 
 message("CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 include_directories(
