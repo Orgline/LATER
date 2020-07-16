@@ -115,8 +115,6 @@ int main(int argc,char *argv[])
     generateUniformMatrix(A,m,n);
 
     float *dA;
-//    cudaMalloc(&dA,sizeof(float)*m*n);
-//    cudaMemcpy(dA,A,sizeof(float)*m*n,cudaMemcpyDeviceToDevice);
 
     cudaCtxt ctxt {};
     cublasCreate(&ctxt.cublas_handle );
@@ -124,24 +122,19 @@ int main(int argc,char *argv[])
 
     int lwork;
 
-    cusolverDnSgeqrf_bufferSize(
-        ctxt.cusolver_handle,
-        m,
-        NMIN,
-        A,
-        m,
-        &lwork
-    );
-    float *work;
-    cudaMalloc( &work, lwork * sizeof(float) );
     
-    __half *hwork;
-    int lhwork = m*n;
-    cudaMalloc( &hwork, sizeof(__half) * lhwork );
+
 
         
     if (algo == 1)
     {
+
+        int lwork = (n/2)*(n/2);
+        float *work;
+        __half *hwork;
+        int lhwork = m*n;
+        cudaMalloc( &hwork, sizeof(__half) * lhwork );
+        cudaMalloc( &work, sizeof(float)*lwork );
         printf("Perform RGSQRF\nmatrix size %d*%d\n",m,n);
         startTimer();
         later_rgsqrf(m,n,A,m,R,n,work,lwork,hwork,lhwork);
@@ -160,16 +153,24 @@ int main(int argc,char *argv[])
             checkResult(m, n, dA, m, A, m, R, n);
             cudaFree(dA);
         }
+        cudaFree(work);
+        cudaFree(hwork);
     }
 
     if (algo == 2)
     {
         printf("Perform RHOUQR\nmatrix size %d*%d\n",m,n);
-
+        __half *hwork;
+        int lhwork = m*n;
+        cudaMalloc( &hwork, sizeof(__half) * lhwork );
         float *U;
         cudaMalloc(&U,sizeof(float)*32*32);
         float *W;
         cudaMalloc(&W,sizeof(float)*m*n);
+
+        float *work;
+        int lwork = (n/2)*(n/2);
+        cudaMalloc(&work, sizeof(float)*lwork);
 
         startTimer();
         later_rhouqr(m, n, A, m, W, m, R, n, work, lwork, hwork, lhwork, U);
@@ -187,6 +188,8 @@ int main(int argc,char *argv[])
 
         cudaFree(U);
         cudaFree(W);
+        cudaFree(work);
+        cudaFree(hwork);
     }
 
     //reference implementation in cuSOLVER
@@ -215,8 +218,7 @@ int main(int argc,char *argv[])
 
     cudaFree(A);
     cudaFree(R);
-    cudaFree(work);
-    cudaFree(hwork);
+
 //    cudaFree(R);
 //    cudaFree(dA);
     return 0;
