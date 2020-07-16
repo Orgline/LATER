@@ -117,3 +117,18 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 __global__ void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb );
 void sSubstract(cublasHandle_t handle, int m,int n, float* dA,int lda, float* dB, int ldb);
 __global__ void clearTri(char uplo, int m, int n, float *a, int lda);
+
+#ifdef DBGPRINT
+#define dbgprintf(fmt, ...) \
+            do {  printf(fmt, __VA_ARGS__); } while (0)
+#else
+#define dbgprintf(fmt, ...) void(0)
+#endif
+
+#ifdef DEBUG_CUDA_KERNEL_LAUNCH
+#define CHECK_KERNEL(x)  do { \
+        gpuErrchk( cudaDeviceSynchronize() ); gpuErrchk( cudaPeekAtLastError() );\
+    } while (0)
+#else
+#define CHECK_KERNEL(x) do {} while(0)
+#endif

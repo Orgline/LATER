@@ -11,6 +11,15 @@ if( MAGMA_FOUND )
     add_definitions(-DMAGMA)
 endif( MAGMA_FOUND )
 
+
+IF(CMAKE_BUILD_TYPE MATCHES Debug)
+    message("debug mode; enabling dbgprint")
+    add_definitions(-DDBGPRINT)
+    add_definitions(-DDEBUG_CUDA_KERNEL_LAUNCH)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -Xcompiler -rdynamic -lineinfo")
+ENDIF(CMAKE_BUILD_TYPE MATCHES Debug)
+
+
 find_library(
         CUBLAS_LIBRARY cublas
         HINTS
