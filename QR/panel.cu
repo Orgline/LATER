@@ -337,7 +337,11 @@ void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
 {
     dim3 blockdim(32, N);
     if ( m <= M ) {
+        printf("launching hou_kernel<%d,%d,%d><<<%d,%d>>>(%d,%d,%d,%d)\n",
+                M, N, NT, blockdim.x, blockdim.y, m, n, lda, ldr);
         hou_kernel<M, N, NT><<<1,blockdim>>>(m, n, A, lda, R, ldr);
+        gpuErrchk( cudaPeekAtLastError() );
+        //gpuErrchk( cudaDeviceSynchronize() );
         return;
     }
     if ( (m-m/M*M)%N != 0) {
@@ -384,7 +388,7 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
 #define R07(OP) {OP(0);OP(1);OP(2);OP(3);OP(4);OP(5);OP(6);OP(7);}
 #define M1(it) if(threadIdx.x+it*32<mm) As[threadIdx.x+it*32+threadIdx.y*ldas] = A[threadIdx.x+it*32+threadIdx.y*lda]
 
-#pragma unroll
+#pragma unroll 4
     for (int k=0; k<8; k++) {
         if(i+k*32<mm) As[i+k*32+j*ldas] = A[i+k*32+j*lda];
     }
@@ -450,7 +454,7 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
     }
 
     float Q[8];
-#pragma unroll
+#pragma unroll 4
     for (int k=0; k<8; k++) {
         Q[k] = 0;
     }
@@ -458,18 +462,18 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
     for (int k=mnmin-1; k>=0; k--) {
         if(threadIdx.y>=k) {
             float acc = 0;
-#pragma unroll
+#pragma unroll 4
             for (int l=0; l<8; l++)
                 acc += As[i+l*32+k*ldas] * Q[l];
             float vq = warpAllReduceSum(acc);
-#pragma unroll
+#pragma unroll 4
             for (int l=0; l<8; l++)
                 if (i+32*l<mm) Q[l] -= vq*( As[i+32*l + k*ldas] );
 
         }
     }
 
-#pragma unroll
+#pragma unroll 4
     for (int k=0; k<8; k++) {
         if (i+k*32<mm) A[i+k*32 + j*lda] = Q[k];
     }
