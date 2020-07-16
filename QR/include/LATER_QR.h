@@ -29,8 +29,10 @@ void mgs_caqr_panel_256x32(cudaCtxt ctxt, int m, int n, float *A, int lda, float
 __global__ void mgs_kernel(int m, int n, float *AA, int lda, float *RR, int ldr);
 __global__ void mgs_kernel2(int m, int n, float *AA, int lda, float *RR, int ldr);
 
-template<int M, int N, int NT>
+template<int M, int N>
 void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work);
 
-template<int M, int N, int NT>
+template<int M, int N>
 __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr );
+template<int M, int N>
+__global__ void hou_kernel2( int m, int n, float *AA, int lda, float *RR, int ldr );

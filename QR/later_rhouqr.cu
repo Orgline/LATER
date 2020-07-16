@@ -2,6 +2,7 @@
 #include "LATER_QR.h"
 
 #include <cuda_fp16.h>
+#include <assert.h>
 
 #define NMIN 32
 
@@ -52,7 +53,7 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
 {
     if(n<=NMIN)
     {
-        hou_caqr_panel<256,32,512>(ctxt, m, n, A, lda, R, ldr, work);
+        hou_caqr_panel<256,32>(ctxt, m, n, A, lda, R, ldr, work);
         dim3 gridDim((m+31)/32,(n+31)/32);
         dim3 blockDim(32,32);
         setEye<<<gridDim,blockDim>>>(m,n,W,ldw);
@@ -102,27 +103,34 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
     {
         __half *Ah = hwork;
         __half *Bh = hwork+m/2*n;
-        startTimer();
+        //startTimer();
         dim3 gridDimA((m+31)/32,(n/2+31)/32);
         dim3 blockDimA(32,32);
         s2h<<<gridDimA,blockDimA>>>(m,n/2,W,ldw,Ah,m);
         s2h<<<gridDimA,blockDimA>>>(m,n/2,A+lda/2*n,lda,Bh,m);
-        cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, n/2, n/2, m,
+        CHECK_KERNEL();
+        dbgprintf("cublasGemmEx %d %d %d lwork %d\n", n/2, n/2, m, lwork);
+        auto status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, n/2, n/2, m,
             &sone, Ah, CUDA_R_16F, m, Bh, CUDA_R_16F, m,
             &szero, work, CUDA_R_32F, n/2, CUDA_R_32F,
             CUBLAS_GEMM_DEFAULT_TENSOR_OP
         );
+        assert(status == CUBLAS_STATUS_SUCCESS);
+        CHECK_KERNEL();
 
         s2h<<<gridDimA,blockDimA>>>(m,n/2,A,lda,Ah,m);
 
         dim3 gridDimB((n/2+31)/32,(n/2+31)/32);
         dim3 blockDimB(32,32);
         s2h<<<gridDimB,blockDimB>>>(n/2,n/2,work,n/2,Bh,n/2);
-        cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n/2, n/2,
+        CHECK_KERNEL();
+        status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n/2, n/2,
             &snegone, Ah, CUDA_R_16F, m, Bh, CUDA_R_16F, n/2,
             &sone, A+lda/2*n, CUDA_R_32F, lda, CUDA_R_32F,
             CUBLAS_GEMM_DEFAULT_TENSOR_OP
         );
+        assert(status == CUBLAS_STATUS_SUCCESS);
+        CHECK_KERNEL();
     }
 
     qr(ctxt,m-n/2,n/2,A+lda/2*n+n/2, lda, W+ldw/2*n+n/2, ldw, R+n/2*ldr+n/2, ldr,work, lwork,hwork,lhwork,U);
@@ -134,6 +142,7 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
 
     setZero<<<gridDim1,blockDim1>>>(n/2,n/2,A+lda/2*n,lda);
 
+    CHECK_KERNEL();
     if(n/2<=128 || m<=128)
     {
         cublasSgemm(ctxt.cublas_handle,
@@ -159,7 +168,7 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
     {
         __half *Ah = hwork;
         __half *Bh = hwork+m/2*n;
-        startTimer();
+        //startTimer();
         dim3 gridDimA((m+31)/32,(n/2+31)/32);
         dim3 blockDimA(32,32);
         s2h<<<gridDimA,blockDimA>>>(m,n/2,A,lda,Ah,m);
@@ -169,7 +178,7 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
             &szero, work, CUDA_R_32F, n/2, CUDA_R_32F,
             CUBLAS_GEMM_DEFAULT_TENSOR_OP
         );
-
+        CHECK_KERNEL();
         s2h<<<gridDimA,blockDimA>>>(m,n/2,W,ldw,Ah,m);
 
         dim3 gridDimB((n/2+31)/32,(n/2+31)/32);
@@ -180,6 +189,7 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
             &sone, W+ldw/2*n, CUDA_R_32F, ldw, CUDA_R_32F,
             CUBLAS_GEMM_DEFAULT_TENSOR_OP
         );
+        CHECK_KERNEL();
     }
     return;
 }
