@@ -11,7 +11,7 @@ set_property(TARGET test_mgs_panel
 target_link_libraries(test_mgs_panel qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
 
 add_executable(test_hou_panel test_hou_panel.cu)
-set_property(TARGET test_mgs_panel
+set_property(TARGET test_hou_panel
         PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 target_link_libraries(test_hou_panel qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
