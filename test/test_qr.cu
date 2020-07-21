@@ -114,6 +114,9 @@ int main(int argc,char *argv[])
 
     generateUniformMatrix(A,m,n);
 
+    //printMatrixDeviceBlock("A.csv",m,n,A,m);
+
+
     float *dA;
 
     cudaCtxt ctxt {};
@@ -182,7 +185,15 @@ int main(int argc,char *argv[])
         {
             cudaMalloc(&dA,sizeof(float)*m*n);
             generateUniformMatrix(dA,m,n);
-            checkResult( m, n, dA, m, W, m, A, m , R, n );
+            later_ormqr(m, n, W, m, A, m, work);
+            //printMatrixDeviceBlock("Q.csv",m,n,W,m);
+            //checkResult( m, n, dA, m, W, m, A, m , R, n );
+            checkOtho(m, n, W, m);
+            dim3 grid96( (n+1)/32, (n+1)/32 );
+            dim3 block96( 32, 32 );
+            clearTri<<<grid96,block96>>>('l',n,n,R,n);  
+            //printMatrixDeviceBlock("R.csv",n,n,R,n);
+            checkResult(m, n, dA, m, W, m, R, n);
             cudaFree(dA);
         }
 

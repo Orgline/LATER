@@ -21,11 +21,17 @@ rgsqrf: recursive Gram-Schmidt QR factorization
 
 rhouqr: recursive Householder QR factorization
 
+ormqr: form explicit Q from rhouqr result
+
 bhouqr: block Householder QR factorization
+
+
 */
 void later_rgsqrf(int m, int n, float* A, int lda, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork);
 
 void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U);
+
+void later_ormqr(int m, int n, float* W, int ldw, float* Y, int ldy, float *work);
 
 void later_bhouqr(int m, int n, float* A, int lda, float* R, int ldr);
 

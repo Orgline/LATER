@@ -6,6 +6,8 @@
 
 #define NMIN 32
 
+int ori_n;
+
 /*
 This routine performs recursive Householder QR factorization
 
@@ -30,7 +32,7 @@ void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
     cublasCreate( & ctxt.cublas_handle );
     cusolverDnCreate( & ctxt.cusolver_handle );
 
-
+    ori_n = n;
     qr(ctxt, m, n, A, lda, W, ldw, R, ldr, work, lwork, hwork, lhwork, U);
     
     cublasDestroy(ctxt.cublas_handle);
@@ -143,53 +145,57 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
     setZero<<<gridDim1,blockDim1>>>(n/2,n/2,A+lda/2*n,lda);
 
     CHECK_KERNEL();
-    if(n/2<=128 || m<=128)
+    
+    if(n < ori_n)
     {
-        cublasSgemm(ctxt.cublas_handle,
-            CUBLAS_OP_T, CUBLAS_OP_N,
-            n/2,n/2,m,
-            &sone,
-            A, lda,
-            W+ldw/2*n,ldw,
-            &szero,
-            work,n/2
-        );
-        cublasSgemm(ctxt.cublas_handle,
-            CUBLAS_OP_N, CUBLAS_OP_N,
-            m,n/2,n/2,
-            &snegone,
-            W, ldw,
-            work,n/2,
-            &sone,
-            W+ldw/2*n,ldw
-        );
-    }
-    else
-    {
-        __half *Ah = hwork;
-        __half *Bh = hwork+m/2*n;
-        //startTimer();
-        dim3 gridDimA((m+31)/32,(n/2+31)/32);
-        dim3 blockDimA(32,32);
-        s2h<<<gridDimA,blockDimA>>>(m,n/2,A,lda,Ah,m);
-        s2h<<<gridDimA,blockDimA>>>(m,n/2,W+ldw/2*n,ldw,Bh,m);
-        cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, n/2, n/2, m,
-            &sone, Ah, CUDA_R_16F, m, Bh, CUDA_R_16F, m,
-            &szero, work, CUDA_R_32F, n/2, CUDA_R_32F,
-            CUBLAS_GEMM_DEFAULT_TENSOR_OP
-        );
-        CHECK_KERNEL();
-        s2h<<<gridDimA,blockDimA>>>(m,n/2,W,ldw,Ah,m);
+        if(n/2<=128 || m<=128)
+        {
+            cublasSgemm(ctxt.cublas_handle,
+                CUBLAS_OP_T, CUBLAS_OP_N,
+                n/2,n/2,m,
+                &sone,
+                A, lda,
+                W+ldw/2*n,ldw,
+                &szero,
+                work,n/2
+            );
+            cublasSgemm(ctxt.cublas_handle,
+                CUBLAS_OP_N, CUBLAS_OP_N,
+                m,n/2,n/2,
+                &snegone,
+                W, ldw,
+                work,n/2,
+                &sone,
+                W+ldw/2*n,ldw
+            );
+        }
+        else
+        {
+            __half *Ah = hwork;
+            __half *Bh = hwork+m/2*n;
+            //startTimer();
+            dim3 gridDimA((m+31)/32,(n/2+31)/32);
+            dim3 blockDimA(32,32);
+            s2h<<<gridDimA,blockDimA>>>(m,n/2,A,lda,Ah,m);
+            s2h<<<gridDimA,blockDimA>>>(m,n/2,W+ldw/2*n,ldw,Bh,m);
+            cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, n/2, n/2, m,
+                &sone, Ah, CUDA_R_16F, m, Bh, CUDA_R_16F, m,
+                &szero, work, CUDA_R_32F, n/2, CUDA_R_32F,
+                CUBLAS_GEMM_DEFAULT_TENSOR_OP
+            );
+            CHECK_KERNEL();
+            s2h<<<gridDimA,blockDimA>>>(m,n/2,W,ldw,Ah,m);
 
-        dim3 gridDimB((n/2+31)/32,(n/2+31)/32);
-        dim3 blockDimB(32,32);
-        s2h<<<gridDimB,blockDimB>>>(n/2,n/2,work,n/2,Bh,n/2);
-        cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n/2, n/2,
-            &snegone, Ah, CUDA_R_16F, m, Bh, CUDA_R_16F, n/2,
-            &sone, W+ldw/2*n, CUDA_R_32F, ldw, CUDA_R_32F,
-            CUBLAS_GEMM_DEFAULT_TENSOR_OP
-        );
-        CHECK_KERNEL();
+            dim3 gridDimB((n/2+31)/32,(n/2+31)/32);
+            dim3 blockDimB(32,32);
+            s2h<<<gridDimB,blockDimB>>>(n/2,n/2,work,n/2,Bh,n/2);
+            cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n/2, n/2,
+                &snegone, Ah, CUDA_R_16F, m, Bh, CUDA_R_16F, n/2,
+                &sone, W+ldw/2*n, CUDA_R_32F, ldw, CUDA_R_32F,
+                CUBLAS_GEMM_DEFAULT_TENSOR_OP
+            );
+            CHECK_KERNEL();
+        }
     }
     return;
 }
