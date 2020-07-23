@@ -33,8 +33,7 @@ void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
 
 void later_ormqr(int m, int n, float* W, int ldw, float* Y, int ldy, float *work);
 
-void later_bhouqr(int m, int n, float* A, int lda, float* R, int ldr);
-
+void later_bhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U);
 
 /*
 Below functions are the integration of often-used functions
