@@ -358,7 +358,6 @@ void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
 
     CHECK_KERNEL();
     hou_caqr_panel<M,N>( ctxt, mm, n, work, ldwork, R, ldr,  work+ldwork*n );
-
     float sone = 1.0, szero = 0.0;
     auto status = cublasSgemmStridedBatched(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
                               M, N, N,
@@ -367,6 +366,7 @@ void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
                               &szero, A,lda, M,
                               m/M);
     assert(CUBLAS_STATUS_SUCCESS == status);
+    
     mm = m%M;
     if (mm>0) {
         auto status = cublasSgemm(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
@@ -374,6 +374,7 @@ void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
                     &szero, &A[m/M*M], lda);
         assert(CUBLAS_STATUS_SUCCESS == status);
     }
+
 }
 template<int M, int N>
 __global__ void hou_kernel2( int m, int n, float *AA, int lda, float *RR, int ldr )

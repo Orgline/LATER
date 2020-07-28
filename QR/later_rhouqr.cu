@@ -26,7 +26,7 @@ void reconstructY(cudaCtxt ctxt, int m,int n, float* dA, float *dU, int lda);
 
 void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U)
 {
-    printf("Function rhouqr\n");
+    //printf("Function rhouqr\n");
     
     cudaCtxt ctxt;
     cublasCreate( & ctxt.cublas_handle );

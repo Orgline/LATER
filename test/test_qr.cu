@@ -203,6 +203,35 @@ int main(int argc,char *argv[])
         cudaFree(hwork);
     }
 
+    if(algo == 3)
+    {
+        printf("Perform BHOUQR\nmatrix size %d*%d\n",m,n);
+        __half *hwork;
+        int lhwork = m*n;
+        cudaMalloc( &hwork, sizeof(__half) * lhwork );
+        float *U;
+        cudaMalloc(&U,sizeof(float)*32*32);
+        float *W;
+        cudaMalloc(&W,sizeof(float)*m*n);
+
+        float *work;
+        int lwork = n*16384;
+        cudaMalloc(&work, sizeof(float)*lwork);
+
+        //startTimer();
+        later_bhouqr(m, n, A, m, W, m, R, n, work, lwork, hwork, lhwork, U);
+        //float ms = stopTimer();
+        //printf("BHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
+                //2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
+
+        
+        cudaFree(U);
+        cudaFree(W);
+        cudaFree(work);
+        cudaFree(hwork);
+
+    }
+
     //reference implementation in cuSOLVER
     {
         generateUniformMatrix(A,m,n);
