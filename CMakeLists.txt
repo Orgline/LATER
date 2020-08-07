@@ -70,6 +70,7 @@ find_library(
         /usr/lib/x86_64-linux-gnu)
 
 add_subdirectory(QR)
+add_subdirectory(BLAS)
 add_subdirectory(util)
 add_subdirectory(test)
 add_subdirectory(benchmark)
