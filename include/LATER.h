@@ -41,7 +41,7 @@ These functions are BLAS-3 matrix operations
 rtrsm: recursive triangular solve
 */
 
-void later_rtrsm(int m, int n, float* A, int lda, float* X, int ldx, float* B, int ldb);
+void later_rtrsm(int m, int n, float* A, int lda, float* B, int ldb);
 
 /*
 Below functions are the integration of often-used functions
