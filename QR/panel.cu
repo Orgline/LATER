@@ -74,7 +74,9 @@ void mgs_caqr_panel_256x32(cudaCtxt ctxt, int m, int n, float *A, int lda, float
     if (m <= 256) 
     {
         // printf("CAQR: Recursion tree leaf: ");
-        mgs_kernel<<<1,256>>>(m, n, A,  lda, R, ldr);
+        //mgs_kernel<<<1,256>>>(m, n, A,  lda, R, ldr);
+        auto blockdim = dim3(32, 32);
+        mgs_kernel2<<<1,blockdim>>>(m, n, A,  lda, R, ldr);
     } 
     else 
     { // m > 256, recurse.
@@ -86,8 +88,9 @@ void mgs_caqr_panel_256x32(cudaCtxt ctxt, int m, int n, float *A, int lda, float
         {
             int ldwork = m/256*32;
             int mm = m/256*32;
-
-            mgs_kernel<<<m/256,256>>>(m, n, A,  lda, work, ldwork);
+            auto blockdim = dim3(32, 32);
+            //mgs_kernel<<<m/256,256>>>(m, n, A,  lda, work, ldwork);
+            mgs_kernel2<<<m/256, blockdim>>>(m, n, A,  lda, work, ldwork);
 
             mgs_caqr_panel_256x32(ctxt, mm , n, work, ldwork, R, ldr, work+ldwork*n);
             
@@ -106,7 +109,10 @@ void mgs_caqr_panel_256x32(cudaCtxt ctxt, int m, int n, float *A, int lda, float
             int ldwork = m/256*32+32;
             int mm = m/256*32+32;
             //printMatrixDeviceBlock("A.csv",m,n,A,lda);
-            mgs_kernel<<<m/256+1,256>>>(m, n, A,  lda, work, ldwork);
+            auto blockdim = dim3(32, 32);
+            //mgs_kernel<<<m/256+1,256>>>(m, n, A,  lda, work, ldwork);
+            mgs_kernel2<<<m/256+1,blockdim>>>(m, n, A,  lda, work, ldwork);
+
             mgs_caqr_panel_256x32(ctxt, mm , n, work, ldwork, R, ldr, work+ldwork*n);
             cublasSgemmStridedBatched(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
                 256, 32, 32,
