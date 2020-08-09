@@ -41,7 +41,7 @@ These functions are BLAS-3 matrix operations
 rtrsm: recursive triangular solve
 */
 
-void later_rtrsm(int m, int n, float* A, int lda, float* B, int ldb);
+void later_rtrsm(int m, int n, float* A, int lda, float* B, int ldb, __half* work);
 
 /*
 Below functions are the integration of often-used functions
@@ -98,6 +98,7 @@ set a matrix to be an identity matrix
 __global__
 void setEye( int m, int n, float *a, int lda);
 
+/*
 template<typename T>
 void printMatrixDeviceBlock(char *path,int m,int n, T* A, int lda)
 {
@@ -114,6 +115,33 @@ void printMatrixDeviceBlock(char *path,int m,int n, T* A, int lda)
         file << std::endl;
     }
     delete[] Ah;
+}*/
+template<typename T>
+void printMatrixDeviceBlock(char *filename,int m, int n, T* dA, int lda)
+{
+    FILE *f = fopen(filename, "w");
+	if (f == NULL) {
+		printf("fault!\n");
+		return;
+	}
+    //printf("Perform printmatrixdevice\n");
+    float *ha;
+    ha = (float*)malloc(sizeof(float));
+
+    for(int i = 0;i<m;i++)
+    {
+        for(int j = 0;j<n;j++)
+        {
+            cudaMemcpy(&ha[0], &dA[i+j*lda], sizeof(float), cudaMemcpyDeviceToHost);
+            fprintf(f, "%lf", ha[0]);
+            if (j == n - 1) fprintf(f, "\n");
+			else fprintf(f, ",");
+        }
+    }
+    fclose(f);
+	//cudaMemcpy(ha, dA, sizeof(float)*m*n, cudaMemcpyDeviceToHost);
+    //printMatrixFloat(filename, m, n, ha, lda);
+    free(ha);
 }
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
