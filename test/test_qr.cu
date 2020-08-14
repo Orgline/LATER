@@ -132,18 +132,19 @@ int main(int argc,char *argv[])
     if (algo == 1)
     {
 
-        int lwork = (n/2)*(n/2);
+        //int lwork = (n/2)*(n/2);
+        int lwork = m/256*32*n;
         float *work;
         __half *hwork;
         int lhwork = m*n;
         cudaMalloc( &hwork, sizeof(__half) * lhwork );
         cudaMalloc( &work, sizeof(float)*lwork );
         printf("Perform RGSQRF\nmatrix size %d*%d\n",m,n);
-        startTimer();
+        //startTimer();
         later_rgsqrf(m,n,A,m,R,n,work,lwork,hwork,lhwork);
-        float ms = stopTimer();
-        printf("RGSQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
-                2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
+        //float ms = stopTimer();
+        //printf("RGSQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
+                //2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
 
         if (checkFlag) {
 
@@ -172,14 +173,14 @@ int main(int argc,char *argv[])
         cudaMalloc(&W,sizeof(float)*m*n);
 
         float *work;
-        int lwork = (n/2)*(n/2);
+        int lwork = m/256*32*n;
         cudaMalloc(&work, sizeof(float)*lwork);
 
-        startTimer();
+        //startTimer();
         later_rhouqr(m, n, A, m, W, m, R, n, work, lwork, hwork, lhwork, U);
-        float ms = stopTimer();
-        printf("RHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
-                2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
+        //float ms = stopTimer();
+        //printf("RHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
+                //2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
 
         if(checkFlag)
         {
@@ -215,7 +216,7 @@ int main(int argc,char *argv[])
         cudaMalloc(&W,sizeof(float)*m*n);
 
         float *work;
-        int lwork = n*16384;
+        int lwork = m*n;
         cudaMalloc(&work, sizeof(float)*lwork);
 
         //startTimer();
@@ -223,7 +224,16 @@ int main(int argc,char *argv[])
         //float ms = stopTimer();
         //printf("BHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
                 //2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
-
+        
+        if(checkFlag)
+        {
+            cudaMalloc(&dA,sizeof(float)*m*n);
+            generateUniformMatrix(dA,m,n);
+            later_ormqr2(m, n, W, m, A, m, work);
+            checkOtho(m, n, W, m);
+            checkResult(m, n, dA, m, W, m, R, n);
+            cudaFree(dA);
+        }
         
         cudaFree(U);
         cudaFree(W);

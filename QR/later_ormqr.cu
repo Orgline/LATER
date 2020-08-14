@@ -61,7 +61,26 @@ void later_ormqr(int m, int n, float* W, int ldw, float* Y, int ldy, float *work
 
     cudaFree(WI);
     cublasDestroy(handle);
-    
-
-
 }
+
+void later_ormqr2(int m, int n, float* W, int ldw, float* Y, int ldy, float* work)
+{
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+
+    float sone = 1.0;
+    float snegone = -1.0;
+
+    dim3 grid1( (m+1)/32, (n+1)/32 );
+	dim3 block1( 32, 32 );
+    setEye<<<grid1,block1>>>( m, n, work, m);
+
+    cublasGemmEx(handle,CUBLAS_OP_N,CUBLAS_OP_T,m,n,n,
+        &snegone,W,CUDA_R_32F, ldw, Y, CUDA_R_32F, ldy,
+        &sone, work, CUDA_R_32F, m, CUDA_R_32F,
+        CUBLAS_GEMM_DEFAULT
+    );
+
+    cudaMemcpy(W, work, sizeof(float)*m*n, cudaMemcpyDeviceToDevice);
+}
+

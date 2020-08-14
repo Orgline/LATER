@@ -25,6 +25,8 @@ ormqr: form explicit Q from rhouqr result
 
 bhouqr: block Householder QR factorization
 
+ormqr2: form explicit Q from bhouqr result
+
 
 */
 void later_rgsqrf(int m, int n, float* A, int lda, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork);
@@ -34,6 +36,8 @@ void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
 void later_ormqr(int m, int n, float* W, int ldw, float* Y, int ldy, float *work);
 
 void later_bhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U);
+
+void later_ormqr2(int m, int n, float* W, int ldw, float* Y, int ldy, float *work);
 
 /*
 These functions are BLAS-3 matrix operations

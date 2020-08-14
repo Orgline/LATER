@@ -9,7 +9,9 @@ The output W stores the W matrix of WY representation
 THe output R stores the upper triangular matrix
 */
 
-#define NMIN 2048
+#define NMIN 512
+
+bool wflag = true;
 
 
 void printMatrixDeviceBlock_(char *filename,int m, int n, float *dA, int lda)
@@ -59,31 +61,25 @@ void formW(int m, int n, float* W, int ldw, float* Y, int ldy, float *work)
     float snegone = -1.0;
     float szero = 0.0;
 
-    cublasGemmEx(handle,
+    cublasSgemm(handle,
         CUBLAS_OP_T, CUBLAS_OP_N,
         n/2,n/2,m,
         &sone,
-        Y, CUDA_R_16F, ldy,
-        W+ldw/2*n, CUDA_R_16F, ldw,
+        Y, ldy,
+        W+ldw/2*n,ldw,
         &szero,
-        work, CUDA_R_16F, n/2,
-        CUDA_R_32F,
-        CUBLAS_GEMM_DEFAULT_TENSOR_OP
+        work,n/2
     );
 
-    cublasGemmEx(handle,
+    cublasSgemm(handle,
         CUBLAS_OP_N, CUBLAS_OP_N,
         m,n/2,n/2,
         &snegone,
-        W, CUDA_R_16F, ldw,
-        work, CUDA_R_16F,n/2,
+        W, ldw,
+        work,n/2,
         &sone,
-        W+ldw/2*n, CUDA_R_32F, ldw,
-        CUDA_R_32F,
-        CUBLAS_GEMM_DEFAULT_TENSOR_OP
+        W+ldw/2*n,ldw
     );
-
-    cublasDestroy(handle);
 }
 
 float panelTime = 0.0;
@@ -124,55 +120,39 @@ void later_bhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
         //printMatrixDeviceBlock_("R.csv", nb, nb, R+i*ldr+i, ldr);
 
         //trailing matrix update
-        //startTimer();
+        startTimer();
         if(n-i > NMIN)
         {
-            float ms;
-            startTimer();
-            cublasGemmEx(ctxt.cublas_handle,
+            cublasSgemm(ctxt.cublas_handle,
                 CUBLAS_OP_T, CUBLAS_OP_N,
                 nb,n - i - nb, m - i,
                 &sone,
-                W+i*lda+i, CUDA_R_16F, ldw,
-                A+(i+nb)*lda+i, CUDA_R_16F, lda,
+                W+i*lda+i, ldw,
+                A+(i+nb)*lda+i, lda,
                 &szero,
-                work, CUDA_R_16F, nb,
-                CUDA_R_32F,
-                CUBLAS_GEMM_DEFAULT_TENSOR_OP
+                work, nb
             );
-            
-            ms = stopTimer();
-            printf("Gemm 1: m ,n ,k = %d, %d, %d; ", nb, n - i - nb, m - i);
-            printf("ms = %lf, TFLOPS = %lf\n", ms, 2.0*nb*(n - i - nb)*(m - i)/(ms*1e9));
 
-            startTimer();
-            
-
-            cublasGemmEx(ctxt.cublas_handle,
+            cublasSgemm(ctxt.cublas_handle,
                 CUBLAS_OP_N, CUBLAS_OP_N,
                 m - i,n - i - nb, nb,
                 &snegone,
-                A+i*lda+i, CUDA_R_16F, lda,
-                work, CUDA_R_16F, nb,
+                A+i*lda+i, lda,
+                work,nb,
                 &sone,
-                A+(i+nb)*lda+i, CUDA_R_32F, lda,
-                CUDA_R_32F,
-                CUBLAS_GEMM_DEFAULT_TENSOR_OP
+                A+(i+nb)*lda+i,lda
             );
-            
-            ms = stopTimer();
-            printf("Gemm 2: m ,n ,k = %d, %d, %d; ", m - i,n - i - nb, nb);
-            printf("ms = %lf, TFLOPS = %lf\n", ms, 2.0*(m-i)*(n - i - nb)*nb/(ms*1e9));
-        //printMatrixDeviceBlock_("A2.csv", m - i,n - i - nb, A+(i+nb)*lda+i, lda);
+            //printMatrixDeviceBlock_("A2.csv", m - i,n - i - nb, A+(i+nb)*lda+i, lda);
+            //break;
     
             dim3 grid( (nb+1)/32, (n-i-nb+1)/32 );
             dim3 block( 32, 32 );
             copyAndClear<<<grid, block>>>(nb, n - i - nb, A+(i+nb)*lda+i, lda, R+(i+nb)*ldr+i, ldr); 
         }
     
-        /*
+
         //update W
-        if(i!=0)
+        if(i!=0 && wflag)
         {
             cublasSgemm(ctxt.cublas_handle,
                 CUBLAS_OP_T, CUBLAS_OP_N,
@@ -193,8 +173,8 @@ void later_bhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
                 &sone,
                 W+i*lda,ldw
             );
-        }*/
-        //gemmTime += stopTimer();
+        }
+        gemmTime += stopTimer();
         //printMatrixDeviceBlock_("WW.csv", m, n, W, ldw);
         //printMatrixDeviceBlock_("YY.csv", m, n, A, lda);
         
