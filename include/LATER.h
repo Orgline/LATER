@@ -47,6 +47,8 @@ rtrsm: recursive triangular solve
 
 void later_rtrsm(int m, int n, float* A, int lda, float* B, int ldb, __half* work);
 
+void later_rsyrk(int n, int k, float* A, int lda, float* C, int ldc, __half* wokr);
+
 /*
 Below functions are the integration of often-used functions
 */
