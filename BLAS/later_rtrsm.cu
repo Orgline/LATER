@@ -54,7 +54,7 @@ void trsm(cublasHandle_t handle, int m, int n, float* A, int lda, float* B, int 
     //printf("%lf\n",gemmTime);
     //printMatrixDeviceBlock("ta.csv", m/2, m/2, A+m/2*m+m/2, lda);
     //printMatrixDeviceBlock("tb.csv", m/2, n, B+m/2, ldb);
-    trsm(handle, m/2, n, A+m/2*m+m/2, lda, B+m/2, ldb, hwork);
+    trsm(handle, m/2, n, A+m/2*lda+m/2, lda, B+m/2, ldb, hwork);
     //printf("1111111\n");
     //printMatrixDeviceBlock("tx.csv", m/2, n, B+m/2, ldb);
     
