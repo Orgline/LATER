@@ -2,7 +2,7 @@
 
 #include <cuda_fp16.h>
 
-#define BLOCKSIZE 256
+#define BLOCKSIZE 2048
 
 float sone = 1.0;
 float snegone = -1.0;
@@ -10,6 +10,8 @@ float szero = 0.0;
 
 float panelTime = 0.0;
 float gemmTime = 0.0;
+
+
 
 void trsm(cublasHandle_t handle, int m, int n, float* A, int lda, float* B, int ldb, __half* hwork)
 {
@@ -29,7 +31,6 @@ void trsm(cublasHandle_t handle, int m, int n, float* A, int lda, float* B, int 
         return;
     }
     trsm(handle, m/2, n, A, lda, B, ldb, hwork);
-    startTimer();
     
     __half *Ah = hwork;
     __half *Bh = hwork+m/2*m/2;
@@ -41,7 +42,7 @@ void trsm(cublasHandle_t handle, int m, int n, float* A, int lda, float* B, int 
     dim3 grid1((m/2+31)/32, (n+31)/32);
     dim3 block1(32,32);
     s2h<<<grid1, block1>>>(m/2, n, B, ldb, Bh, m/2);
-
+    startTimer();
 
     cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m/2, n, m/2,
         &snegone, Ah, CUDA_R_16F, m/2, Bh, CUDA_R_16F, m/2,
@@ -77,3 +78,54 @@ void later_rtrsm(int m, int n, float* A, int lda, float* B, int ldb, __half* hwo
 
     return;
 }
+
+/*
+void later_rtrsm(int m, int n, float* A, int lda, float* B, int ldb, __half* hwork)
+{
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+
+    for (int i = 0; i<m; i+=BLOCKSIZE)
+    {
+        int nb = min(m-i, BLOCKSIZE);
+
+        startTimer();
+        //leaf op
+        cublasStrsm(handle,
+            CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER,
+            CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT,
+            nb, n, &sone,
+            A+i, lda,
+            B+i, ldb
+        );
+
+        panelTime+=stopTimer();
+
+        startTimer();
+
+        //if not the last block, then update
+        if(m-i>BLOCKSIZE)
+        {
+            __half *Ah = hwork;
+            __half *Bh = hwork + (m - i - nb)*nb;
+
+            dim3 grid((m - i - nb + 31)/32, (nb+31)/32);
+            dim3 block(32,32);
+            s2h<<<grid, block>>>(m - i - nb, nb, A+i+nb, lda, Ah, m - i - nb);
+
+            dim3 grid1((nb + 31)/32, (n+31)/32);
+            dim3 block1(32,32);
+            s2h<<<grid1, block1>>>(nb, n, B+i, ldb, Bh, nb);
+
+            cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m - i - nb, n, nb,
+                &snegone, Ah, CUDA_R_16F, m - i - nb, Bh, CUDA_R_16F, nb,
+                &sone, B+i+nb, CUDA_R_32F, ldb, CUDA_R_32F,
+                CUBLAS_GEMM_DEFAULT_TENSOR_OP
+            );
+        }
+        gemmTime+=stopTimer();
+    }
+
+    printf("Panel takes %lfms\n", panelTime);
+    printf("Gemm takes %lfms\n", gemmTime);
+}*/
