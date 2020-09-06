@@ -1,4 +1,4 @@
-add_library(blas later_rtrsm.cu later_rsyrk.cu)
+add_library(blas later_rtrsm.cu later_rsyrk.cu later_rtrmm.cu)
 
 target_include_directories(blas PUBLIC ../include)
 
