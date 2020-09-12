@@ -45,7 +45,7 @@ These functions are BLAS-3 matrix operations
 rtrsm: recursive triangular solve
 */
 
-void later_rtrsm(int m, int n, float* A, int lda, float* B, int ldb, __half* work);
+void later_rtrsm(char uplo, char leri, char trans, int m, int n, float* A, int lda, float* B, int ldb, __half* work);
 
 void later_rsyrk(int n, int k, float* A, int lda, float* C, int ldc, __half* wokr);
 

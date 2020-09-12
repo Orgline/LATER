@@ -76,7 +76,7 @@ int main(int argc,char *argv[])
     //generateNormalMatrix(B,m,n);
     //printMatrixDeviceBlock("A.csv", m, m, A, m);
     //printMatrixDeviceBlock("B.csv", m, n, B, m);
-    later_rtrsm(m, n, A, m, B, m, hwork);
+    later_rtrsm('l','l','n',m, n, A, m, B, m, hwork);
     //printMatrixDeviceBlock("X.csv", m, n, B, m);
     //printf("debug 1\n");
     if(checkFlag)
