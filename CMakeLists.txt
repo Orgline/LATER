@@ -74,6 +74,7 @@ add_subdirectory(BLAS)
 add_subdirectory(util)
 add_subdirectory(test)
 add_subdirectory(benchmark)
+add_subdirectory(Cholesky)
 
 message("CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 include_directories(
