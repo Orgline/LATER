@@ -66,53 +66,40 @@ void trsm_l_l_n(cublasHandle_t handle, int m, int n, float* A, int lda, float* B
 
 void trsm_l_r_t(cublasHandle_t handle, int m, int n, float* A, int lda, float* B, int ldb, __half* hwork)
 {
-    //printf("m,n=%d,%d\n", m, n);
+    
     if(m <= BLOCKSIZE)
     {
         //startTimer();
         cublasStrsm(handle,
-            CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER,
-            CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT,
+            CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_LOWER,
+            CUBLAS_OP_T, CUBLAS_DIAG_NON_UNIT,
             m, n, &sone,
             A, lda,
             B, ldb
         );
         float ms = stopTimer();
-        //panelTime += ms;
-        //printf("panel TFLOPS is %lf\n", 1.0*m*m*n/1e9/ms);
-        //printf("%lf\n",panelTime);
         return;
     }
-    trsm_l_r_t(handle, m/2, n, A, lda, B, ldb, hwork);
+    trsm_l_r_t(handle, m, n/2, A, lda, B, ldb, hwork);
     
     __half *Ah = hwork;
-    __half *Bh = hwork+m/2*m/2;
+    __half *Bh = hwork+n/2*n/2;
 
-    dim3 grid((m/2+31)/32, (m/2+31)/32);
+    dim3 grid((n/2+31)/32, (n/2+31)/32);
     dim3 block(32,32);
-    s2h<<<grid, block>>>(m/2, m/2, A+m/2, lda, Ah, m/2);
+    s2h<<<grid, block>>>(n/2, n/2, A+n/2, lda, Ah, n/2);
 
-    dim3 grid1((m/2+31)/32, (n+31)/32);
+    dim3 grid1((m+31)/32, (n/2+31)/32);
     dim3 block1(32,32);
-    s2h<<<grid1, block1>>>(m/2, n, B, ldb, Bh, m/2);
-    //startTimer();
+    s2h<<<grid1, block1>>>(m, n/2, B, ldb, Bh, m);
 
-    cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m/2, n, m/2,
-        &snegone, Ah, CUDA_R_16F, m/2, Bh, CUDA_R_16F, m/2,
-        &sone, B+m/2, CUDA_R_32F, ldb, CUDA_R_32F,
+    cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, m, n/2, n/2,
+        &snegone, Bh, CUDA_R_16F, m, Ah, CUDA_R_16F, n/2,
+        &sone, B+n/2*ldb, CUDA_R_32F, ldb, CUDA_R_32F,
         CUBLAS_GEMM_DEFAULT_TENSOR_OP
     );
 
-    //float ms = stopTimer();
-    //gemmTime += ms;
-    //printf("GEMM flops is %lf\n", 2.0*m/2.0*n*m/2.0/1e9/ms);
-    //printf("%lf\n",gemmTime);
-    //printMatrixDeviceBlock("ta.csv", m/2, m/2, A+m/2*m+m/2, lda);
-    //printMatrixDeviceBlock("tb.csv", m/2, n, B+m/2, ldb);
-    trsm_l_r_t(handle, m/2, n, A+m/2*lda+m/2, lda, B+m/2, ldb, hwork);
-    //printf("1111111\n");
-    //printMatrixDeviceBlock("tx.csv", m/2, n, B+m/2, ldb);
-    
+    trsm_l_r_t(handle, m, n/2, A+n/2*lda+n/2, lda, B+n/2*ldb, ldb, hwork);
 }
 
 void later_rtrsm(char uplo, char leri, char trans, int m, int n, float* A, int lda, float* B, int ldb, __half* hwork)
