@@ -67,7 +67,7 @@ void trsm_l_l_n(cublasHandle_t handle, int m, int n, float* A, int lda, float* B
 void trsm_l_r_t(cublasHandle_t handle, int m, int n, float* A, int lda, float* B, int ldb, __half* hwork)
 {
     
-    if(m <= BLOCKSIZE)
+    if(n <= BLOCKSIZE)
     {
         //startTimer();
         cublasStrsm(handle,
@@ -77,11 +77,12 @@ void trsm_l_r_t(cublasHandle_t handle, int m, int n, float* A, int lda, float* B
             A, lda,
             B, ldb
         );
-        float ms = stopTimer();
+        //float ms = stopTimer();
         return;
     }
+    //printf("1\n");
     trsm_l_r_t(handle, m, n/2, A, lda, B, ldb, hwork);
-    
+    //printf("1\n");
     __half *Ah = hwork;
     __half *Bh = hwork+n/2*n/2;
 

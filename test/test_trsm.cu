@@ -29,24 +29,24 @@ int main(int argc,char *argv[])
         return 0;
     }
     float *A;
-    cudaMalloc(&A, sizeof(float)*m*m);
+    cudaMalloc(&A, sizeof(float)*n*n);
     float *B;
     cudaMalloc(&B, sizeof(float)*m*n);
 
     __half *hwork;
-    cudaMalloc(&hwork, sizeof(__half)*(m/2*m/2+m/2*n));
+    cudaMalloc(&hwork, sizeof(__half)*(n/2*n/2+m/2*n));
 
     //generateUniformMatrix(A,m,m);
     float *hA;
-    hA = (float*)malloc(sizeof(float)*m*m);
-    for(long i=0;i<m*m;i++)
+    hA = (float*)malloc(sizeof(float)*n*n);
+    for(long i=0;i<n*n;i++)
     {
         hA[i] = 0.1;
     }
-    cudaMemcpy(A, hA, sizeof(float)*m*m, cudaMemcpyHostToDevice);
-    dim3 grid((m+31)/32, (m+31)/32);
+    cudaMemcpy(A, hA, sizeof(float)*n*n, cudaMemcpyHostToDevice);
+    dim3 grid((n+31)/32, (n+31)/32);
     dim3 block(32,32);
-    clearTri<<<grid, block>>>('u', m, m, A, m);
+    clearTri<<<grid, block>>>('u', n, n, A, n);
     //printf("debug 1\n");
     float *hB;
     hB= (float*)malloc(sizeof(float)*m*n);
@@ -67,8 +67,8 @@ int main(int argc,char *argv[])
     float *work;
     cudaMalloc(&work, sizeof(float)*m*n);
     //printf("debug 1\n");
-    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, m,
-        &sone, A, m, B, m,
+    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, n,
+        &sone, B, m, A, n,
         &szero, work, m
     );
     cudaMemcpy(B, work, sizeof(float)*m*n, cudaMemcpyDeviceToDevice);
@@ -76,7 +76,7 @@ int main(int argc,char *argv[])
     //generateNormalMatrix(B,m,n);
     //printMatrixDeviceBlock("A.csv", m, m, A, m);
     //printMatrixDeviceBlock("B.csv", m, n, B, m);
-    later_rtrsm('l','l','n',m, n, A, m, B, m, hwork);
+    later_rtrsm('l','r','t',m, n, A, n, B, m, hwork);
     //printMatrixDeviceBlock("X.csv", m, n, B, m);
     //printf("debug 1\n");
     if(checkFlag)
@@ -88,7 +88,7 @@ int main(int argc,char *argv[])
         //generateNormalMatrix(dB,m,n);
         cudaMemcpy(dB, hB, sizeof(float)*m*n, cudaMemcpyHostToDevice);
         cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, m,
-            &sone, A, m, dB, m,
+            &sone, dB, m, A, n,
             &szero, work, m
         );
         cudaMemcpy(dB, work, sizeof(float)*m*n, cudaMemcpyDeviceToDevice);
@@ -102,10 +102,10 @@ int main(int argc,char *argv[])
         //printMatrixDeviceBlock("dX.csv", m, n, B, m);
         
         cublasSgemm(handle, 
-            CUBLAS_OP_N, CUBLAS_OP_N, 
-            m, n, m,
-            &snegone, A, m,
-            B, m,
+            CUBLAS_OP_N, CUBLAS_OP_T, 
+            m, n, n,
+            &snegone, B, m,
+            A, n,
             &sone, dB, m
         );
         //printMatrixDeviceBlock("bb.csv", m, n, dB, m);
