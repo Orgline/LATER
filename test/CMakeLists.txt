@@ -4,6 +4,12 @@ set_property(TARGET test_qr
 
 target_link_libraries(test_qr qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
 
+add_executable(test_potrf test_potrf.cu)
+set_property(TARGET test_potrf
+        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+
+target_link_libraries(test_potrf chol utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
+
 add_executable(test_trsm test_trsm.cu)
 set_property(TARGET test_trsm
         PROPERTY CUDA_SEPARABLE_COMPILATION ON)
