@@ -1,10 +1,5 @@
 #include<LATER.h>
 
-struct cudaCtxt {
-	cublasHandle_t cublas_handle;
-	cusolverDnHandle_t cusolver_handle;
-};
-
 struct F4add
 {
     __host__ __device__ __forceinline__
