@@ -9,7 +9,7 @@ float ge = 0.0;
 
 
 
-void syrk(cublasHandle_t handle, int n, int k, float *A, int lda, float *C, int ldc, __half *hwork)
+void syrk(cublasHandle_t handle, int n, int k, float alpha, float *A, int lda, float beta, float *C, int ldc, __half *hwork)
 {
     //printf("n = %d\n", n);
     //gpuErrchk( cudaPeekAtLastError() );
@@ -17,19 +17,24 @@ void syrk(cublasHandle_t handle, int n, int k, float *A, int lda, float *C, int 
     float szero = 0.0;
     if(n<=BLOCKSIZE)
     {
+        //printf("alpha = %f, beta = %f\n", alpha, beta);
+        //printMatrixDeviceBlock("A.csv", n ,k ,A, lda);
+        //printMatrixDeviceBlock("C.csv", n ,n ,C, ldc);
         startTimer();
         cublasSsyrk(handle,
             CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N,
             n, k,
-            &sone,
+            &alpha,
             A, lda,
-            &szero,
+            &beta,
             C, ldc
         );
+        //printMatrixDeviceBlock("fC.csv", n ,n ,C, ldc);
+
         pan+=stopTimer();
         return;
     }
-    syrk(handle, n/2, k, A, lda, C, ldc, hwork);
+    syrk(handle, n/2, k, alpha, A, lda, beta, C, ldc, hwork);
     
     startTimer();
     __half *Ah = hwork;
@@ -41,8 +46,8 @@ void syrk(cublasHandle_t handle, int n, int k, float *A, int lda, float *C, int 
     s2h<<<grid, block>>>(n/2, k, A, lda, Bh, n/2);
 
     cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, n/2, n/2, k,
-        &sone, Ah, CUDA_R_16F, n/2, Bh, CUDA_R_16F, n/2,
-        &szero, C+n/2, CUDA_R_32F, ldc, CUDA_R_32F,
+        &alpha, Ah, CUDA_R_16F, n/2, Bh, CUDA_R_16F, n/2,
+        &beta, C+n/2, CUDA_R_32F, ldc, CUDA_R_32F,
         CUBLAS_GEMM_DEFAULT_TENSOR_OP
     );
 
@@ -52,18 +57,18 @@ void syrk(cublasHandle_t handle, int n, int k, float *A, int lda, float *C, int 
 
     ge+=t;
 
-    syrk(handle, n/2, k, A+n/2, lda, C+n/2+ldc/2*n, ldc, hwork);
+    syrk(handle, n/2, k, alpha, A+n/2, lda, beta, C+n/2+ldc/2*n, ldc, hwork);
 
     //Transpose and cpy
 
 }
 
-void later_rsyrk(int n, int k, float *A, int lda, float *C, int ldc, __half *work)
+void later_rsyrk(int n, int k,  float alpha, float *A, int lda, float beta, float *C, int ldc, __half *work)
 {
     cublasHandle_t handle;
     cublasCreate(&handle);
     
-    syrk(handle, n, k, A, lda, C, ldc, work);
+    syrk(handle, n, k, alpha, A, lda, beta, C, ldc, work);
 
     printf("Panel takes %lf ms\n Gemm takes %lf ms\n", pan, ge);
 

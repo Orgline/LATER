@@ -34,13 +34,20 @@ int main(int argc,char *argv[])
     float *C;
     cudaMalloc(&C, sizeof(float)*n*n);
 
+    dim3 grid1((n+1)/32, (n+1)/32);
+    dim3 block1(32,32);
+
+    setEye<<<grid1, block1>>>(n, n, C, n);
+
     __half *hwork;
     cudaMalloc(&hwork, sizeof(__half)*n*k);
 
     generateUniformMatrix(A,n,k);
 
+    generateUniformMatrix(C,n,n);
+
     //startTimer();
-    later_rsyrk(n, k, A, n, C, n, hwork);
+    later_rsyrk(n, k, -1.0, A, n, 1.0, C, n, hwork);
     float ms;
 
     float *tC;
@@ -56,8 +63,13 @@ int main(int argc,char *argv[])
     cublasHandle_t handle;
     cublasCreate(&handle);
 
-    float sone  = 1.0;
-    float szero = 0.0;
+    float sone  = -1.0;
+    float szero = 1.0;
+
+    generateUniformMatrix(C, n ,n);
+    //setEye<<<grid1, block1>>>(n, n, C, n);
+
+    //generateUniformMatrix(A, n, k);
     startTimer();
     
     cublasSsyrk(handle,
@@ -76,10 +88,16 @@ int main(int argc,char *argv[])
     if(checkFlag)
     {
         float snegone = -1.0;
+        sone = 1.0;
+        //printMatrixDeviceBlock("oC.csv", n, n, C, n);
+        //printMatrixDeviceBlock("tC.csv", n, n, tC, n);
         cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, n,
             &sone, C, n, &snegone, tC, n,
             C, n
         );
+
+        //printMatrixDeviceBlock("C.csv", n, n, A, n);
+
         printf("Forward error is %.6e\n",snorm(n,n,C)/snorm(n , n, tC));
     }
 

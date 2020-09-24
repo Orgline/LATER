@@ -37,7 +37,7 @@ int main(int argc,char *argv[])
 
     for(long i = 0; i< n*n ;i++)
     {
-        hA[i]=1.0;
+        hA[i]=0.1;
     }
 
     cudaMemcpy(A, hA, sizeof(float)*n*n, cudaMemcpyHostToDevice);
@@ -61,12 +61,14 @@ int main(int argc,char *argv[])
 
     cudaMemcpy(A, twork, sizeof(float)*n*n, cudaMemcpyDeviceToDevice);
 
+    float normA = snorm(n,n,A);
+
     //cudaFree(twork);
 
     
 
     float *work;
-    cudaMalloc(&work, 3);
+    cudaMalloc(&work, sizeof(float)*128*128);
 
     __half *hwork;
     cudaMalloc(&hwork, sizeof(__half)*n/2*n);
@@ -81,12 +83,15 @@ int main(int argc,char *argv[])
 
     if(checkFlag)
     {
+        clearTri<<<grid, block>>>('u', n, n, A, n);
         cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, n, n, n,
             &snegone, A, n, A, n,
             &sone, twork, n
         );
 
-        printf("Backward error ||LL^T-A||/||A|| = %.6e\n", snorm(n, n, twork)/snorm(n,n,A));
+        
+
+        printf("Backward error ||LL^T-A||/||A|| = %.6e\n", snorm(n, n, twork)/normA);
 
     }
 
