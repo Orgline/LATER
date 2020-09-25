@@ -103,26 +103,26 @@ void trsm_l_r_t(cublasHandle_t handle, int m, int n, float* A, int lda, float* B
     trsm_l_r_t(handle, m, n/2, A+n/2*lda+n/2, lda, B+n/2*ldb, ldb, hwork);
 }
 
-void later_rtrsm(char uplo, char leri, char trans, int m, int n, float* A, int lda, float* B, int ldb, __half* hwork)
+void later_rtrsm(cublasHandle_t handle, char uplo, char leri, char trans, int m, int n, float* A, int lda, float* B, int ldb, __half* hwork)
 {
-    cublasHandle_t handle;
-    cublasCreate(&handle);
+    //cublasHandle_t handle;
+    //cublasCreate(&handle);
 
     //printMatrixDeviceBlock("A.csv", m, m, A, lda);
     //printMatrixDeviceBlock("B.csv", m, n, B, ldb);
-    startTimer();
+    //startTimer();
     if(uplo == 'l' && leri == 'l' && trans == 'n')
         trsm_l_l_n(handle, m, n, A, lda, B, ldb, hwork);
     else if (uplo == 'l' && leri == 'r' && trans == 't')
         trsm_l_r_t(handle, m, n, A, lda, B, ldb, hwork);
 
-    printf("rtrsm takes %f ms\n", stopTimer());
+    //printf("rtrsm takes %f ms\n", stopTimer());
     //printf("Panel takes %lfms\n", panelTime);
     //printf("Gemm takes %lfms\n", gemmTime);
     //printf("22222\n");
     //printMatrixDeviceBlock("X.csv", m, n, B, ldb);
 
-    cublasDestroy(handle);
+    //cublasDestroy(handle);
 
     return;
 }

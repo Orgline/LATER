@@ -50,9 +50,9 @@ These functions are BLAS-3 matrix operations
 rtrsm: recursive triangular solve
 */
 
-void later_rtrsm(char uplo, char leri, char trans, int m, int n, float* A, int lda, float* B, int ldb, __half* work);
+void later_rtrsm(cublasHandle_t handle, char uplo, char leri, char trans, int m, int n, float* A, int lda, float* B, int ldb, __half* work);
 
-void later_rsyrk(int n, int k, float alpha, float* A, int lda, float beta, float* C, int ldc, __half* work);
+void later_rsyrk(cublasHandle_t handle, int n, int k, float alpha, float* A, int lda, float beta, float* C, int ldc, __half* work);
 
 void later_rtrmm(int m, int n, float* A, int lda, float* B, int ldb, float *C, int ldc, float *tempC,  __half* hwork);
 

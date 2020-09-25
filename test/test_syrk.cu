@@ -46,10 +46,13 @@ int main(int argc,char *argv[])
 
     generateUniformMatrix(C,n,n);
 
-    //tartTimer();
-    later_rsyrk(n, k, -1.0, A, n, 1.0, C, n, hwork);
+    cublasHandle_t handle;
+    cublasCreate(&handle);
 
-    //printf("rsyrk takes %f ms\n", stopTimer());
+    startTimer();
+    later_rsyrk(handle, n, k, -1.0, A, n, 1.0, C, n, hwork);
+
+    printf("rsyrk takes %f ms\n", stopTimer());
     float ms;
 
     float *tC;
@@ -62,8 +65,6 @@ int main(int argc,char *argv[])
     
     //printf("SYRK takes %lfms\n", ms);
 
-    cublasHandle_t handle;
-    cublasCreate(&handle);
 
     float sone  = -1.0;
     float szero = 1.0;

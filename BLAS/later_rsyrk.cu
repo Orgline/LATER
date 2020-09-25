@@ -63,18 +63,18 @@ void syrk(cublasHandle_t handle, int n, int k, float alpha, float *A, int lda, f
 
 }
 
-void later_rsyrk(int n, int k,  float alpha, float *A, int lda, float beta, float *C, int ldc, __half *work)
+void later_rsyrk(cublasHandle_t handle, int n, int k,  float alpha, float *A, int lda, float beta, float *C, int ldc, __half *work)
 {
     
-    cublasHandle_t handle;
-    cublasCreate(&handle);
+    //cublasHandle_t handle;
+    //cublasCreate(&handle);
     
-    startTimer();
+    //startTimer();
     syrk(handle, n, k, alpha, A, lda, beta, C, ldc, work);
-    printf("rsyrk takes %f ms\n", stopTimer());
+    //printf("rsyrk takes %f ms\n", stopTimer());
 
     //printf("Panel takes %lf ms\n Gemm takes %lf ms\n", pan, ge);
 
 
-    cublasDestroy(handle);
+    //cublasDestroy(handle);
 }

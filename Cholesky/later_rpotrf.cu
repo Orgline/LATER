@@ -4,7 +4,7 @@
 
 #include <assert.h>
 
-#define BLOCKSIZE 4096
+#define BLOCKSIZE 2048
 #define LWORK 65536
 
 int chol_info;
@@ -21,6 +21,7 @@ This function performs recursive Cholesky factorization
 
 void l_potrf(cudaCtxt ctxt, int n, float* A, int lda, float* work, __half* hwork)
 {
+    float ms;
     //printf("n = %d\n", n);
     if(n<=BLOCKSIZE)
     {
@@ -34,6 +35,8 @@ void l_potrf(cudaCtxt ctxt, int n, float* A, int lda, float* work, __half* hwork
             dev_info);
         
         chol_panel += stopTimer();
+
+        printf("panel takes %f ms\n", chol_panel);
 
         //assert(CUSOLVER_STATUS_SUCCESS == status);
         //printf("status = %d\n", status);
@@ -49,11 +52,15 @@ void l_potrf(cudaCtxt ctxt, int n, float* A, int lda, float* work, __half* hwork
 
     startTimer();
 
-    later_rtrsm('l', 'r', 't', n/2, n/2, A, n, A+n/2, n, hwork);
+    later_rtrsm(ctxt.cublas_handle, 'l', 'r', 't', n/2, n/2, A, n, A+n/2, n, hwork);
 
-    later_rsyrk(n/2, n/2, -1.0, A+n/2, n, 1.0, A+n/2*n+n/2, n, hwork);
+    later_rsyrk(ctxt.cublas_handle, n/2, n/2, -1.0, A+n/2, n, 1.0, A+n/2*n+n/2, n, hwork);
 
-    chol_gemm += stopTimer();
+    ms = stopTimer();
+    
+    chol_gemm+=ms;
+
+    printf("n = %d,gemm takes %f ms, update flops is %f TFLOPS\n", n/2, chol_gemm, 2.0*n/2*n/2*n/2/ms/1e9);
 
     l_potrf(ctxt, n/2, A+n/2*n+n/2, n, work, hwork);
 }
