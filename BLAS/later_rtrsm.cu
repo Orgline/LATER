@@ -26,7 +26,7 @@ void trsm_l_l_n(cublasHandle_t handle, int m, int n, float* A, int lda, float* B
             A, lda,
             B, ldb
         );
-        float ms = stopTimer();
+        //float ms = stopTimer();
         //panelTime += ms;
         //printf("panel TFLOPS is %lf\n", 1.0*m*m*n/1e9/ms);
         //printf("%lf\n",panelTime);
@@ -110,10 +110,13 @@ void later_rtrsm(char uplo, char leri, char trans, int m, int n, float* A, int l
 
     //printMatrixDeviceBlock("A.csv", m, m, A, lda);
     //printMatrixDeviceBlock("B.csv", m, n, B, ldb);
+    startTimer();
     if(uplo == 'l' && leri == 'l' && trans == 'n')
         trsm_l_l_n(handle, m, n, A, lda, B, ldb, hwork);
     else if (uplo == 'l' && leri == 'r' && trans == 't')
         trsm_l_r_t(handle, m, n, A, lda, B, ldb, hwork);
+
+    printf("rtrsm takes %f ms\n", stopTimer());
     //printf("Panel takes %lfms\n", panelTime);
     //printf("Gemm takes %lfms\n", gemmTime);
     //printf("22222\n");

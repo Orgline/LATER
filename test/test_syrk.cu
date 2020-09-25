@@ -46,8 +46,10 @@ int main(int argc,char *argv[])
 
     generateUniformMatrix(C,n,n);
 
-    //startTimer();
+    //tartTimer();
     later_rsyrk(n, k, -1.0, A, n, 1.0, C, n, hwork);
+
+    //printf("rsyrk takes %f ms\n", stopTimer());
     float ms;
 
     float *tC;

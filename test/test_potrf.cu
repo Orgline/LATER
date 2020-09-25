@@ -89,8 +89,6 @@ int main(int argc,char *argv[])
             &sone, twork, n
         );
 
-        
-
         printf("Backward error ||LL^T-A||/||A|| = %.6e\n", snorm(n, n, twork)/normA);
 
     }

@@ -20,7 +20,7 @@ void syrk(cublasHandle_t handle, int n, int k, float alpha, float *A, int lda, f
         //printf("alpha = %f, beta = %f\n", alpha, beta);
         //printMatrixDeviceBlock("A.csv", n ,k ,A, lda);
         //printMatrixDeviceBlock("C.csv", n ,n ,C, ldc);
-        startTimer();
+        //startTimer();
         cublasSsyrk(handle,
             CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N,
             n, k,
@@ -31,12 +31,12 @@ void syrk(cublasHandle_t handle, int n, int k, float alpha, float *A, int lda, f
         );
         //printMatrixDeviceBlock("fC.csv", n ,n ,C, ldc);
 
-        pan+=stopTimer();
+        //pan+=stopTimer();
         return;
     }
     syrk(handle, n/2, k, alpha, A, lda, beta, C, ldc, hwork);
     
-    startTimer();
+    //startTimer();
     __half *Ah = hwork;
     __half *Bh = hwork+n/2*k;
 
@@ -51,11 +51,11 @@ void syrk(cublasHandle_t handle, int n, int k, float alpha, float *A, int lda, f
         CUBLAS_GEMM_DEFAULT_TENSOR_OP
     );
 
-    float t = stopTimer();
+    //float t = stopTimer();
 
     //printf("GEMM size m,n,k = %d %d %d,takes %lf, %lf TFLOPS\n", n/2, n/2, k, t, 2.0*n/2*n/2*k/1e9/t);
 
-    ge+=t;
+    //ge+=t;
 
     syrk(handle, n/2, k, alpha, A+n/2, lda, beta, C+n/2+ldc/2*n, ldc, hwork);
 
@@ -65,12 +65,16 @@ void syrk(cublasHandle_t handle, int n, int k, float alpha, float *A, int lda, f
 
 void later_rsyrk(int n, int k,  float alpha, float *A, int lda, float beta, float *C, int ldc, __half *work)
 {
+    
     cublasHandle_t handle;
     cublasCreate(&handle);
     
+    startTimer();
     syrk(handle, n, k, alpha, A, lda, beta, C, ldc, work);
+    printf("rsyrk takes %f ms\n", stopTimer());
 
-    printf("Panel takes %lf ms\n Gemm takes %lf ms\n", pan, ge);
+    //printf("Panel takes %lf ms\n Gemm takes %lf ms\n", pan, ge);
+
 
     cublasDestroy(handle);
 }
