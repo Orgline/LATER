@@ -2,39 +2,8 @@
 #include "LATER_QR.h"
 #include <assert.h>
 #include <string>
-#include <sstream>
 
-std::string getOsName()
-{
-#ifdef _WIN64
-    return "Windows 64-bit";
-#elif _WIN32
-    return "Windows 32-bit";
-    #elif __APPLE__ || __MACH__
-    return "Mac OSX";
-    #elif __linux__
-    return "Linux";
-    #elif __FreeBSD__
-    return "FreeBSD";
-    #elif __unix || __unix__
-    return "Unix";
-    #else
-    return "Other";
-#endif
-}
-std::string getCompilerName()
-{
-#ifdef _MSC_VER
-    return "Visual Studio " + std::to_string(_MSC_VER);
-#elif __GNUC__
-    std::stringstream ss;
-    ss << "GCC " <<  __GNUC__ << "." << __GNUC_MINOR__ << "." << __GNUC_PATCHLEVEL__;
-    return ss.str();
-#elif __clang__
-    return "Clang";
-#endif
-    return "Unkonwn";
-}
+
 
 #define NMIN 128
 
@@ -74,39 +43,7 @@ int main(int argc,char *argv[])
     {
         return 0;
     }
-    {
-        cudaDeviceProp prop;
-        int cudaversion;
-        int driverversion;
-
-        cudaGetDeviceProperties(&prop, 0);
-        int mpcount, s2dratio;
-        cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, 0);
-        cudaDeviceGetAttribute(&s2dratio, cudaDevAttrSingleToDoublePrecisionPerfRatio, 0);
-        cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, 0);
-        cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, 0);
-        cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, 0);
-        cudaRuntimeGetVersion(&cudaversion);
-        cudaDriverGetVersion(&driverversion);
-
-        std::cout << "=== Device information ===" << std::endl;
-        std::cout << "Device name: " << prop.name << std::endl;
-        std::cout << "Compute Capability: " << prop.major << "." << prop.minor << std::endl;
-        std::cout << "OS: " << getOsName() << std::endl;
-        std::cout << "Host Compiler: " << getCompilerName() << std::endl;
-        std::cout << "CUDA Runtime Version: " << cudaversion << std::endl;
-        std::cout << "CUDA Driver Version: " << driverversion << std::endl;
-        std::cout << "NVCC Version: " << __CUDACC_VER_MAJOR__ << "." << __CUDACC_VER_MINOR__ << std::endl;
-        std::cout << "GMem " << prop.totalGlobalMem << std::endl;
-        std::cout << "SMem per block " << prop.sharedMemPerBlock << std::endl;
-        std::cout << "SMem per MP " << prop.sharedMemPerMultiprocessor << std::endl;
-        std::cout << "Regs per block " << prop.regsPerBlock << std::endl;
-        std::cout << "Clock rate " << prop.clockRate << std::endl;
-        std::cout << "L2 $ size " << prop.l2CacheSize << std::endl;
-        std::cout << "# MP " << mpcount << std::endl;
-        std::cout << "single-double perf ratio " << s2dratio << std::endl;
-        std::cout << "=== END Deivce Information ===\n" << std::endl;
-    }
+    print_env();
     float *A;
     cudaMalloc(&A,sizeof(float)*m*n);
     float *R;

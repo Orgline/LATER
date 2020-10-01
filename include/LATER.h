@@ -192,3 +192,5 @@ __global__ void clearTri(char uplo, int m, int n, float *a, int lda);
 #else
 #define CHECK_KERNEL(x) do {} while(0)
 #endif
+
+void print_env();
