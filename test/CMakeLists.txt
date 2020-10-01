@@ -1,3 +1,13 @@
+message("CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+message("CUTLASS_DIR $ENV{CUTLASS_DIR}")
+
+include_directories(
+        ./include
+        ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+        $ENV{CUTLASS_DIR}/include
+        $ENV{CUTLASS_DIR}/tools/util/include
+)
+
 add_executable(test_qr test_qr.cu)
 set_property(TARGET test_qr
         PROPERTY CUDA_SEPARABLE_COMPILATION ON)
@@ -40,3 +50,9 @@ set_property(TARGET test_hou_panel
         PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 target_link_libraries(test_hou_panel qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
+
+add_executable(test_cutlass test_cutlass.cu)
+set_property(TARGET test_cutlass
+        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+
+target_link_libraries(test_cutlass  utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
