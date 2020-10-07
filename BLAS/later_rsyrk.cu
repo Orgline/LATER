@@ -13,14 +13,15 @@ void syrk(cublasHandle_t handle, int n, int k, float alpha, float *A, int lda, f
 {
     //printf("n = %d\n", n);
     //gpuErrchk( cudaPeekAtLastError() );
-    float sone  = 1.0;
-    float szero = 0.0;
+    //float sone  = 1.0;
+    //float szero = 0.0;
     if(n<=BLOCKSIZE)
     {
         //printf("alpha = %f, beta = %f\n", alpha, beta);
         //printMatrixDeviceBlock("A.csv", n ,k ,A, lda);
         //printMatrixDeviceBlock("C.csv", n ,n ,C, ldc);
         //startTimer();
+        /*
         cublasSsyrk(handle,
             CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N,
             n, k,
@@ -28,8 +29,20 @@ void syrk(cublasHandle_t handle, int n, int k, float alpha, float *A, int lda, f
             A, lda,
             &beta,
             C, ldc
-        );
+        );*/
         //printMatrixDeviceBlock("fC.csv", n ,n ,C, ldc);
+        __half *ah = hwork;
+
+        dim3 grid1((n+1)/32, (k+1)/32);
+        dim3 block1(32,32);
+        s2h<<<grid1, block1>>>(n, k, A, lda, ah, n);
+        //s2h<<<grid1, block1>>>(n, k, A, lda, Bh, n/2);
+
+        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, n, n, k,
+            &alpha, ah, CUDA_R_16F, n, ah, CUDA_R_16F, n, 
+            &beta, C, CUDA_R_32F, ldc, CUDA_R_32F,
+            CUBLAS_GEMM_DEFAULT_TENSOR_OP
+        );
 
         //pan+=stopTimer();
         return;

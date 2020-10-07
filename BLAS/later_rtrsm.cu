@@ -11,6 +11,65 @@ float szero = 0.0;
 float panelTime = 0.0;
 float gemmTime = 0.0;
 
+__global__
+void kernel_l_l_n( int m, int n, __half *AA, int lda, __half *BB, int ldb)
+{
+    __half *A = AA;
+    __half *B = BB + blockIdx.x * 128;
+
+    int nn = n - 128 * blockIdx.x;
+    nn = (nn < 128) ? nn : 128;
+
+    __shared__ __half As[64 * 64];
+    __shared__ __half Bs[64 * 128];
+
+    int i = threadIdx.y;
+
+    #pragma unroll 8
+    for (int j = 0; j < 64; j++) 
+    {
+        if(i < 64) 
+        {
+            As[i * 64 + j] = A[i * lda + j];
+        }
+        if(i < nn)
+        {
+            Bs[i * 64 + j] = B[i * ldb + j];
+        }
+    }
+    __syncthreads();
+
+
+    int ldas = 64;
+    int ldbs = 64;
+
+    for(int k = 0; k < 64; k++)
+    {
+        Bs[k + i * ldbs] /= As[k + k * ldas];
+
+        #pragma unroll 8
+
+        for(int x = k + 1 + threadIdx.x; x < 64; x += blockDim.x)
+        {
+            if(x < 64)
+            {
+                Bs[x + i * ldbs] -= As[k + k * ldas] * Bs[k + i * ldbs];
+            }
+        }
+    }
+    __syncthreads();
+
+    #pragma unroll 8
+    for (int j = 0; j < 64; j++) 
+    {
+        if(i < nn)
+        {
+            B[i * ldb + j] = Bs[i * 64 + j];
+        }
+    }
+
+}
+
 
 
 void trsm_l_l_n(cublasHandle_t handle, int m, int n, float* A, int lda, float* B, int ldb, __half* hwork)
