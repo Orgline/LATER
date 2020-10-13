@@ -81,24 +81,14 @@ int main()
         C.sync_device();
         using ElementAccumulator = cutlass::half_t;
         using ElementComputeEpilogue = ElementAccumulator;
-//        using EpilogueOutputOp = cutlass::epilogue::thread::LinearCombination<
-//                ElementOutput,
-//                128 / cutlass::sizeof_bits<ElementOutput>::value,
-//                ElementAccumulator,
-//                ElementComputeEpilogue
-//        >;
-#ifdef CUDA_ARCH
-#if CUDA_ARCH==Turing
-#pragma message ( "Turing" )
-            using SmArch = cutlass::arch::Sm75;
+        using EpilogueOutputOp = cutlass::epilogue::thread::LinearCombination<
+                ElementOutput,
+                128 / cutlass::sizeof_bits<ElementOutput>::value,
+                ElementAccumulator,
+                ElementComputeEpilogue
+        >;
 
-#elif CUDA_ARCH==Volta
- #pragma message ( "Volta" )
-            using SmArch = cutlass::arch::Sm70;
-#endif
-#else
-#error "Macro CUDA_ARCH undefined!"
-#endif
+        using SmArch = cutlass::arch::Sm70;
         using Gemm = cutlass::gemm::device::Gemm<
                 ElementInputA,
                 cutlass::layout::ColumnMajor,
@@ -108,14 +98,13 @@ int main()
                 cutlass::layout::ColumnMajor,
                 ElementAccumulator,
                 cutlass::arch::OpClassTensorOp,
-                SmArch
-//                cutlass::gemm::GemmShape<256,128,32>,
-//                cutlass::gemm::GemmShape<64,64,32>,
-//                cutlass::gemm::GemmShape<16,8,8>
-//                ShapeMMAOp
-//                EpilogueOutputOp
-//                cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle,
-//                2
+                SmArch,
+                cutlass::gemm::GemmShape<128,256,32>,
+                cutlass::gemm::GemmShape<64,64,32>,
+                cutlass::gemm::GemmShape<8,8,4>,
+                EpilogueOutputOp,
+                cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle,
+                2
         >;
         ElementAccumulator alpha = ElementAccumulator(1), beta = ElementAccumulator(-1);
 //        EpilogueOutputOp::Params params(alpha, beta);

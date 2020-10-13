@@ -1,4 +1,5 @@
 #include "LATER.h"
+#include <string>
 
 cudaEvent_t begin, end;
 void startTimer()
