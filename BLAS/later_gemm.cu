@@ -40,12 +40,9 @@ void cublasErrCheck_(cublasStatus_t stat, const char *file, int line) {
     }
 }
 
-using handle_t = cublasHandle_t;
-using T_op_t = cublasOperation_t;
-
 constexpr auto stream_num = 4;
 static cudaStream_t streams[stream_num];
-static handle_t handles[stream_num];
+static cublasHandle_t handles[stream_num];
 void init() {
     static bool first_time = true;
     if (first_time) {
@@ -76,9 +73,10 @@ void tile_size(const int m, const int n, const int k, int &tm, int &tn, int &tk)
     } while (tm * tk + tk * tn + tm * tn > free_entries);
 }
 
-// col-major only
-void OC_Sgemm(int m, int n, int k, const float &alpha, const float *A, int lda, const float *B,
-              int ldb, const float &beta, float *C, int ldc) {
+// col-major
+void OC_Sgemm(cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
+              const float &alpha, const float *A, int lda, const float *B, int ldb,
+              const float &beta, float *C, int ldc) {
     init(); // init stream and cublas handle
     int tm, tn, tk;
     tile_size<float>(m, n, k, tm, tn,
@@ -97,14 +95,32 @@ void OC_Sgemm(int m, int n, int k, const float &alpha, const float *A, int lda, 
             auto stream = streams[stream_id];
             auto pC = &C[j * tn * m + i * tm];
             for (int a = 0; a < (k / tk); a++) {
-                auto pA = &A[a * tk * m + i * tm];
-                auto pB = &B[j * tn * k + a * tk];
-                cublasChk(cublasSetMatrixAsync(tm, tk, sizeof(float), pA, m, A_tiles[stream_id], tm,
-                                               stream));
-                cublasChk(cublasSetMatrixAsync(tk, tn, sizeof(float), pB, k, B_tiles[stream_id], tk,
-                                               stream));
-                cublasSgemm(handles[stream_id], CUBLAS_OP_N, CUBLAS_OP_N, tm, tn, tk, &alpha,
-                            A_tiles[stream_id], tm, B_tiles[stream_id], tk, &beta,
+                int tlda, tldb;
+                const float *pA, *pB;
+                if (transa == CUBLAS_OP_N) {
+                    pA = &A[a * tk * m + i * tm];
+                    cublasChk(cublasSetMatrixAsync(tm, tk, sizeof(float), pA, m, A_tiles[stream_id],
+                                                   tm, stream));
+                    tlda = tm;
+                } else {
+                    pA = &A[i * tk * m + a * tm];
+                    cublasChk(cublasSetMatrixAsync(tk, tm, sizeof(float), pA, k, A_tiles[stream_id],
+                                                   tk, stream));
+                    tlda = tk;
+                }
+                if (transb == CUBLAS_OP_N) {
+                    pB = &B[j * tn * k + a * tk];
+                    cublasChk(cublasSetMatrixAsync(tk, tn, sizeof(float), pB, k, B_tiles[stream_id],
+                                                   tk, stream));
+                    tldb = tk;
+                } else {
+                    pB = &B[a * tn * k + j * tk];
+                    cublasChk(cublasSetMatrixAsync(tn, tk, sizeof(float), pB, n, B_tiles[stream_id],
+                                                   tn, stream));
+                    tldb = tn;
+                }
+                cublasSgemm(handles[stream_id], transa, transb, tm, tn, tk, &alpha,
+                            A_tiles[stream_id], tlda, B_tiles[stream_id], tldb, &beta,
                             C_tiles[stream_id], tm);
             }
             cublasChk(
@@ -162,16 +178,26 @@ int main(int ac, char **av) {
     arr_t<float> B = rand_float(n * k);
     arr_t<float> C(new float[m * n]), C2(new float[m * n]);
     float alpha = 1.0f, beta = 1.0f;
-    double time = 0.0;
-    OC_Sgemm(m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
-    for (int i = 0; i < 10; i++) {
-        auto start = std::chrono::high_resolution_clock::now();
-        OC_Sgemm(m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
-        auto end = std::chrono::high_resolution_clock::now();
-        time += std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() * 1.0;
-    }
-    std::cout << "Time: " << time / 10 << "ms" << std::endl;
-    std::cout << C[0] << std::endl;
+    prt(A.get(), m * k);
+    prt(B.get(), n * k);
+    OC_Sgemm(CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
+    prt(C.get(), m * n);
+    OC_Sgemm(CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
+    prt(C.get(), m * n);
+    OC_Sgemm(CUBLAS_OP_T, CUBLAS_OP_N, m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
+    prt(C.get(), m * n);
+    OC_Sgemm(CUBLAS_OP_T, CUBLAS_OP_T, m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
+    prt(C.get(), m * n);
+    // double time = 0.0;
+    // for (int i = 0; i < 10; i++) {
+    //     auto start = std::chrono::high_resolution_clock::now();
+    //     OC_Sgemm(m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
+    //     auto end = std::chrono::high_resolution_clock::now();
+    //     time += std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() * 1.0;
+    // }
+    // std::cout << "Time: " << time / 10 << "ms" << std::endl;
+    // std::cout << C[0] << std::endl;
+
     // ref(A.get(), B.get(), C2.get(), m, n, k);
     // for (long i = 0; i < m * n; i++) {
     //     // std::cout << C[i] << "\t" << C2[i] << std::endl;
