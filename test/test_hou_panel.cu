@@ -4,7 +4,7 @@
 int main(int argc, char* argv[])
 {
     float *A;
-    int m=16;
+    int m=1024;
     int n=32;
     cudaMalloc(&A, sizeof(float)*m*n);
     generateUniformMatrix(A, m, n);
@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
         auto blockdim = dim3(32, 32);
         int nb = (m+255)/256;
 
-        hou_kernel2<256,32><<<nb, blockdim>>>(m, n, A, lda, R, ldr);
+        hou_kernel<256,32><<<nb, blockdim>>>(m, n, A, lda, R, ldr);
         float ms = stopTimer();
         CHECK_KERNEL();
         printf("%dx%d hou_kernel block takes %.3f (ms)\n", m, n, ms);
