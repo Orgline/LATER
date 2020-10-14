@@ -40,12 +40,9 @@ void cublasErrCheck_(cublasStatus_t stat, const char *file, int line) {
     }
 }
 
-using handle_t = cublasHandle_t;
-using T_op_t = cublasOperation_t;
-
 constexpr auto stream_num = 4;
 static cudaStream_t streams[stream_num];
-static handle_t handles[stream_num];
+static cublasHandle_t handles[stream_num];
 void init() {
     static bool first_time = true;
     if (first_time) {
@@ -93,28 +90,7 @@ void tile_size(const int m, const int n, const int k, int &tm, int &tn, int &tk)
     } while (true);
 }
 
-#define prt_arr(arr, size)                                                                         \
-    do {                                                                                           \
-        printf("prt_mark: %s:%d %s\n", __FILE__, __LINE__, #arr);                                  \
-        _prt_arr(arr, size, true);                                                                 \
-    } while (0)
-
-void _prt_arr(const float *arr, const int size, bool isDevice) {
-    if (isDevice) {
-        auto temp = new float[size];
-        cudaChk(cudaMemcpy(temp, arr, sizeof(float) * size, cudaMemcpyDeviceToHost));
-        for (int i = 0; i < size; i++) {
-            printf("%d: %f\n", i, temp[i]);
-        }
-        free(temp);
-    } else {
-        for (int i = 0; i < size; i++) {
-            printf("%d: %f\n", i, arr[i]);
-        }
-    }
-}
-
-// col-major only
+// col-major
 void OC_Sgemm(cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
               const float &alpha, const float *A, int lda, const float *B, int ldb,
               const float &beta, float *C, int ldc) {
@@ -235,5 +211,6 @@ int main(int ac, char **av) {
     arr_t<float> C(new float[size_t(m) * size_t(n)]);
     float alpha = 1.0f, beta = 1.0f;
     OC_Sgemm(CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A, m, B, k, beta, C.get(), m);
-    std::cout << C[0] << std::endl;}
+    std::cout << C[0] << std::endl;
+}
 #endif
