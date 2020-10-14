@@ -56,3 +56,9 @@ set_property(TARGET test_cutlass
         PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 target_link_libraries(test_cutlass  utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
+
+add_executable(test_gemm test_gemm.cu)
+set_property(TARGET test_gemm
+        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+
+target_link_libraries(test_gemm  blas utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})

@@ -56,6 +56,10 @@ void later_rsyrk(cublasHandle_t handle, int n, int k, float alpha, float* A, int
 
 void later_rtrmm(int m, int n, float* A, int lda, float* B, int ldb, float *C, int ldc, float *tempC,  __half* hwork);
 
+void later_oc_sgemm(cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
+              const float &alpha, const float *A, int lda, const float *B, int ldb,
+              const float &beta, float *C, int ldc);
+
 /*
 These functions are related to Cholesky factorization
 */
@@ -194,3 +198,5 @@ __global__ void clearTri(char uplo, int m, int n, float *a, int lda);
 #endif
 
 void print_env();
+
+size_t free_mem();

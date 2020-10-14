@@ -192,3 +192,9 @@ void print_env() {
 //    std::cout << "__CUAD_ARCH__ " << __CUDA_ARCH__ << std::endl;
     std::cout << "=== END Deivce Information ===\n" << std::endl;
 }
+
+size_t free_mem() {
+    size_t free, total;
+    cudaMemGetInfo(&free, &total);
+    return free;
+}
