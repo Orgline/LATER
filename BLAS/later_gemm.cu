@@ -40,9 +40,12 @@ void cublasErrCheck_(cublasStatus_t stat, const char *file, int line) {
     }
 }
 
+using handle_t = cublasHandle_t;
+using T_op_t = cublasOperation_t;
+
 constexpr auto stream_num = 4;
 static cudaStream_t streams[stream_num];
-static cublasHandle_t handles[stream_num];
+static handle_t handles[stream_num];
 void init() {
     static bool first_time = true;
     if (first_time) {
@@ -61,6 +64,18 @@ size_t free_mem() {
     return free;
 }
 
+int is_mul_overflow(int a, int b) {
+    if (a >= 0 && b >= 0) {
+        return INT_MAX / a < b;
+    } else if (a < 0 && b < 0) {
+        return INT_MAX / a > b;
+    } else if (a * b == INT_MIN) {
+        return 0;
+    } else {
+        return a < 0 ? is_mul_overflow(-a, b) : is_mul_overflow(a, -b);
+    }
+}
+
 template <typename T>
 void tile_size(const int m, const int n, const int k, int &tm, int &tn, int &tk) {
     auto free_entries = (free_mem() / sizeof(T)) / stream_num;
@@ -70,10 +85,36 @@ void tile_size(const int m, const int n, const int k, int &tm, int &tn, int &tk)
         tn = n / i;
         tk = k / i;
         i *= 2;
-    } while (tm * tk + tk * tn + tm * tn > free_entries);
+        if (is_mul_overflow(tn, sizeof(float)) || is_mul_overflow(tm, sizeof(float)) ||
+            is_mul_overflow(tk, sizeof(float)) || is_mul_overflow(tm, tn * sizeof(float)) ||
+            is_mul_overflow(tm, tk * sizeof(float)) || is_mul_overflow(tn, tk * sizeof(float)))
+            continue;
+        if (tm * tn + tm * tk + tn * tk < free_entries) break;
+    } while (true);
 }
 
-// col-major
+#define prt_arr(arr, size)                                                                         \
+    do {                                                                                           \
+        printf("prt_mark: %s:%d %s\n", __FILE__, __LINE__, #arr);                                  \
+        _prt_arr(arr, size, true);                                                                 \
+    } while (0)
+
+void _prt_arr(const float *arr, const int size, bool isDevice) {
+    if (isDevice) {
+        auto temp = new float[size];
+        cudaChk(cudaMemcpy(temp, arr, sizeof(float) * size, cudaMemcpyDeviceToHost));
+        for (int i = 0; i < size; i++) {
+            printf("%d: %f\n", i, temp[i]);
+        }
+        free(temp);
+    } else {
+        for (int i = 0; i < size; i++) {
+            printf("%d: %f\n", i, arr[i]);
+        }
+    }
+}
+
+// col-major only
 void OC_Sgemm(cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
               const float &alpha, const float *A, int lda, const float *B, int ldb,
               const float &beta, float *C, int ldc) {
@@ -138,14 +179,14 @@ void OC_Sgemm(cublasOperation_t transa, cublasOperation_t transb, int m, int n, 
 
 #ifdef TEST_OC
 template <typename T> using arr_t = std::unique_ptr<T[]>;
-arr_t<half> rand_half(long size) {
+arr_t<half> rand_half(size_t size) {
     arr_t<half> res(new half[size]);
     for (long i = 0; i < size; i++)
         res[i] = __float2half(static_cast<float>((rand() % 10) / 5.0f));
     return std::move(res);
 }
 
-arr_t<float> rand_float(long size) {
+arr_t<float> rand_float(size_t size) {
     arr_t<float> res(new float[size]);
     for (long i = 0; i < size; i++)
         res[i] = static_cast<float>((rand() % 10) / 5.0f);
@@ -163,46 +204,36 @@ void ref(float *A, float *B, float *C, int m, int n, int k) {
         }
     }
 }
+
+template <typename T> void prt(T *arr, int size) {
+    for (int i = 0; i < size; i++)
+        std::cout << arr[i] << ", ";
+    puts("");
+}
+
 using namespace std::chrono;
 int main(int ac, char **av) {
+    cudaChk(cudaFree(0));
     if (ac < 4) puts("Usage: ./a.out m n k [used GPU mem%]");
-    int m = 1 << atoi(av[1]);
-    int n = 1 << atoi(av[2]);
-    int k = 1 << atoi(av[3]);
+    int m = atoi(av[1]);
+    int n = atoi(av[2]);
+    int k = atoi(av[3]);
     if (ac > 4) {
         size_t mem = free_mem() * (atof(av[4]) / 100);
         volatile char *p;
         cudaChk(cudaMalloc((void **)&p, mem));
     }
-    arr_t<float> A = rand_float(m * k);
-    arr_t<float> B = rand_float(n * k);
-    arr_t<float> C(new float[m * n]), C2(new float[m * n]);
-    float alpha = 1.0f, beta = 1.0f;
-    prt(A.get(), m * k);
-    prt(B.get(), n * k);
-    OC_Sgemm(CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
-    prt(C.get(), m * n);
-    OC_Sgemm(CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
-    prt(C.get(), m * n);
-    OC_Sgemm(CUBLAS_OP_T, CUBLAS_OP_N, m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
-    prt(C.get(), m * n);
-    OC_Sgemm(CUBLAS_OP_T, CUBLAS_OP_T, m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
-    prt(C.get(), m * n);
-    // double time = 0.0;
-    // for (int i = 0; i < 10; i++) {
-    //     auto start = std::chrono::high_resolution_clock::now();
-    //     OC_Sgemm(m, n, k, alpha, A.get(), m, B.get(), k, beta, C.get(), m);
-    //     auto end = std::chrono::high_resolution_clock::now();
-    //     time += std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() * 1.0;
-    // }
-    // std::cout << "Time: " << time / 10 << "ms" << std::endl;
-    // std::cout << C[0] << std::endl;
+    const size_t elements = size_t(m) * size_t(k) + size_t(n) * size_t(k);
+    std::vector<float> data(elements);
+    std::uniform_real_distribution<float> distribution(0.0f, 2.0f);
+    std::mt19937 engine;
+    auto generator = std::bind(distribution, engine);
+    std::generate_n(data.begin(), elements, generator);
 
-    // ref(A.get(), B.get(), C2.get(), m, n, k);
-    // for (long i = 0; i < m * n; i++) {
-    //     // std::cout << C[i] << "\t" << C2[i] << std::endl;
-    //     if (abs(C[i] - C2[i]) > 1e-3)
-    //         std::cout << "error at " << i << ": " << C[i] << " " << C2[i] << std::endl;
-    // }
-}
+    auto A = data.data();
+    auto B = &data.data()[size_t(m) * size_t(k)];
+    arr_t<float> C(new float[size_t(m) * size_t(n)]);
+    float alpha = 1.0f, beta = 1.0f;
+    OC_Sgemm(CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A, m, B, k, beta, C.get(), m);
+    std::cout << C[0] << std::endl;}
 #endif
