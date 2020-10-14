@@ -11,7 +11,7 @@ THe output R stores the upper triangular matrix
 
 #define NMIN 512
 
-bool wflag = true;
+bool wflag = false;
 
 
 void printMatrixDeviceBlock_(char *filename,int m, int n, float *dA, int lda)
