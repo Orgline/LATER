@@ -2,6 +2,7 @@
 #include <cublas_v2.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime_api.h>
+#include "LATER.h"
 #define cudaChk(stat)                                                                              \
     { cudaErrCheck_((stat), __FILE__, __LINE__); }
 void cudaErrCheck_(cudaError_t stat, const char *file, int line) {
@@ -55,11 +56,12 @@ void init() {
     }
 }
 
+/*
 size_t free_mem() {
     size_t free, total;
     cudaMemGetInfo(&free, &total);
     return free;
-}
+}*/
 
 int is_mul_overflow(int a, int b) {
     if (a >= 0 && b >= 0) {
@@ -91,7 +93,7 @@ void tile_size(const int m, const int n, const int k, int &tm, int &tn, int &tk)
 }
 
 // col-major
-void OC_Sgemm(cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
+void later_oc_sgemm(cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
               const float &alpha, const float *A, int lda, const float *B, int ldb,
               const float &beta, float *C, int ldc) {
     init(); // init stream and cublas handle
@@ -153,6 +155,8 @@ void OC_Sgemm(cublasOperation_t transa, cublasOperation_t transb, int m, int n, 
     }
 }
 
+/*
+
 #ifdef TEST_OC
 template <typename T> using arr_t = std::unique_ptr<T[]>;
 arr_t<half> rand_half(size_t size) {
@@ -213,4 +217,4 @@ int main(int ac, char **av) {
     OC_Sgemm(CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, alpha, A, m, B, k, beta, C.get(), m);
     std::cout << C[0] << std::endl;
 }
-#endif
+#endif*/
