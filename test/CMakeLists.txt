@@ -53,11 +53,7 @@ set_property(TARGET test_hou_panel
 
 target_link_libraries(test_hou_panel qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
 
-add_executable(test_cutlass test_cutlass_volta.cu)
-set_property(TARGET test_cutlass
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
-target_link_libraries(test_cutlass  utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
 
 add_executable(test_gemm test_gemm.cu)
 set_property(TARGET test_gemm
