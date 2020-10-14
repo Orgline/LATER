@@ -1,10 +1,12 @@
+#define DEBUG_CUDA_KERNEL_LAUNCH
+
 #include "LATER.h"
 #include "LATER_QR.h"
 
 int main(int argc, char* argv[])
 {
     float *A;
-    int m=1024;
+    int m=256;
     int n=32;
     cudaMalloc(&A, sizeof(float)*m*n);
     generateUniformMatrix(A, m, n);
@@ -22,10 +24,10 @@ int main(int argc, char* argv[])
 
     {
         startTimer();
-        auto blockdim = dim3(32, 32);
+        auto blockdim = dim3(32, 16);
         int nb = (m+255)/256;
 
-        hou_kernel<256,32><<<nb, blockdim>>>(m, n, A, lda, R, ldr);
+        hou_kernel3<256,32><<<nb, blockdim>>>(m, n, A, lda, R, ldr);
         float ms = stopTimer();
         CHECK_KERNEL();
         printf("%dx%d hou_kernel block takes %.3f (ms)\n", m, n, ms);
@@ -36,10 +38,12 @@ int main(int argc, char* argv[])
 
     {
         startTimer();
-        auto blockdim = dim3(32, 32);
-        mgs_kernel<<<1, 256>>>(m, n, A, lda, R, n);
+        int nb = (m+255)/256;
+        dim3 blockdim = dim3(32,32);
+        mgs_kernel2<<<nb, blockdim>>>(m, n, A, lda, R, n);
         //mgs_kernel2<<<1, blockdim>>>(m, n, A,  lda, R, n);
         float ms = stopTimer();
+        CHECK_KERNEL();
         printf("%dx%d mgs_kernel block takes %.3f (ms)\n", m, n, ms);
     }
 

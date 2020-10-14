@@ -31,3 +31,5 @@ template<int M, int N>
 __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr );
 template<int M, int N>
 __global__ void hou_kernel2( int m, int n, float *AA, int lda, float *RR, int ldr );
+template<int M, int N>
+__global__ void hou_kernel3( int m, int n, float *AA, int lda, float *RR, int ldr );

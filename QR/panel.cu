@@ -382,6 +382,200 @@ void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
     }
 
 }
+
+// launch parameters: M*N=256*32, blockdim: 32*16
+template<int M, int N>
+__global__ void hou_kernel3( int m, int n, float *AA, int lda, float *RR, int ldr )
+{
+
+    int mm = m - blockIdx.x*M; // TB local number of rows
+    mm = (mm<M) ? mm : M;
+
+    if (mm <= 0) return;
+
+    const int mnmin = (mm<n) ? mm : n;
+
+    float *A = &AA[blockIdx.x*M];
+    float *R = &RR[blockIdx.x*N];
+    __shared__ float As[M*N], Rs[N];
+    const int ldas = M/*, ldrs = N*/;
+
+//    float acc0, acc1, acc2, acc3, acc4,acc5, acc6, acc7;
+    float acc[8];
+    const int i=threadIdx.x, j=threadIdx.y;
+
+//#define R07(OP) {OP(0);OP(1);OP(2);OP(3);OP(4);OP(5);OP(6);OP(7);}
+//#define M1(it) if(threadIdx.x+it*32<mm) As[threadIdx.x+it*32+threadIdx.y*ldas] = A[threadIdx.x+it*32+threadIdx.y*lda]
+
+//#pragma unroll 2
+    for (int k=0; k<8; k++) {
+        // FIXME: What if n < 32?
+        if(i+k*32<mm) As[i+k*32+j*ldas] = A[i+k*32+j*lda];
+        if(i+k*32<mm) As[i+k*32+(j+16)*ldas] = A[i+k*32+(j+16)*lda];
+    }
+
+    __syncthreads();
+
+    for (int k=0; k<mnmin; k++) {
+        // reference: house_gen.m and house_qr from Cleve Moler blog.
+        float nu = 0;
+
+        if(threadIdx.y==k%16) { // threadIdx.y is the warpId; each warp takes two columns
+#pragma unroll
+            for(int it=0; it<8; it++) {
+                (threadIdx.x + it * 32 < mm && threadIdx.x + it * 32 >= k) ?
+                (acc[it] = As[threadIdx.x + it * 32 + k * ldas] *
+                           As[threadIdx.x + it * 32 + k * ldas]) :
+                 acc[it] = 0;
+            }
+            nu = (acc[0] + acc[1]) + (acc[2] + acc[3]) + (acc[4] + acc[5]) + (acc[6] + acc[7]);
+
+            float normxsqr = (warpAllReduceSum(nu));
+            float normx = sqrt(normxsqr);
+
+            float scale = 1.0/normx;
+
+#pragma unroll
+            for(int it=0; it<8; it++) {
+                if(threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)
+                    As[threadIdx.x+it*32+k*ldas] *= scale;
+            }
+            __syncwarp();
+            if(threadIdx.x==k) {
+                float u1 = As[k+k*ldas];
+
+                As[k+k*ldas] += (u1>=0) ? 1 : -1;
+                Rs[k] = (u1>=0)? -normx :normx;
+            }
+            __syncwarp();
+            scale = 1.0/sqrt(abs(As[k+k*ldas]));
+#pragma unroll
+            for(int it=0; it<8; it++) {
+                if(threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)
+                    As[threadIdx.x+it*32+k*ldas] *= scale;
+            }
+
+            __syncwarp();
+        }
+        __syncthreads();
+        if(threadIdx.y>k) {
+            float uxl = 0;
+#pragma unroll
+            for(int it=0; it<8; it++) {
+                (threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)?
+                acc[it]= As[threadIdx.x+it*32+threadIdx.y*ldas] * As[threadIdx.x+it*32+k*ldas]:
+                        acc[it] = 0;
+            }
+            uxl = (acc[0] + acc[1]) + (acc[2] + acc[3]) + (acc[4] + acc[5]) + (acc[6] + acc[7]);
+            float ux = warpAllReduceSum(uxl);
+
+#pragma unroll
+            for(int it=0; it<8; it++) {
+                if(threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)
+                    As[threadIdx.x+it*32+threadIdx.y*ldas] -= ux * As[threadIdx.x+it*32+k*ldas];
+            }
+        }
+        if(16+threadIdx.y>k) {
+            float uxl = 0;
+#pragma unroll
+            for(int it=0; it<8; it++) {
+                (threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)?
+                        acc[it]= As[threadIdx.x+it*32+(16+threadIdx.y)*ldas] * As[threadIdx.x+it*32+k*ldas]:
+                        acc[it] = 0;
+            }
+            uxl = (acc[0] + acc[1]) + (acc[2] + acc[3]) + (acc[4] + acc[5]) + (acc[6] + acc[7]);
+            float ux = warpAllReduceSum(uxl);
+
+#pragma unroll
+            for(int it=0; it<8; it++) {
+                if(threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)
+                    As[threadIdx.x+it*32+(16+threadIdx.y)*ldas] -= ux * As[threadIdx.x+it*32+k*ldas];
+            }
+        }
+    }
+
+    __syncthreads();
+
+    // write to R
+#pragma unroll
+    for (int it=0; it<2; it++) {
+        int j = it*16+threadIdx.y;
+        int i = threadIdx.x;
+        if (i == j)
+            R[i + i * ldr] = Rs[i];
+        else if (i < j) {
+            R[i + j * ldr] = As[i + j * ldas];
+            As[i + j * ldas] = 0;
+
+        } else if (i < n) {
+            R[i + j * ldr] = 0;
+        }
+    }
+
+
+
+    // compute explict Q from Householder reflectors
+    float Q[8*2];
+#pragma unroll
+    for (int k=0; k<8; k++) {
+        Q[k] = 0;
+        Q[k+8] = 0;
+    }
+    if(i==j) Q[0] = 1.0;
+    if(i==j+16) Q[8] = 1.0;
+
+    for (int k=mnmin-1; k>=0; k--) {
+        float acc[8];
+        if(threadIdx.y>=k) {
+            float accum = 0;
+            for (int l=0; l<8; l++)
+                accum += As[i+l*32+k*ldas] * Q[l];
+            float vq = warpAllReduceSum(accum);
+
+            for (int l=0; l<8; l++)
+                if (i+32*l<mm) Q[l] -= vq*( As[i+32*l + k*ldas] );
+
+        }
+        if(threadIdx.y+16>=k) {
+            float accum = 0;
+            for (int l=0; l<8; l++)
+                accum += As[i+l*32+k*ldas] * Q[l+8];
+
+            float vq = warpAllReduceSum(accum);
+            for (int l=0; l<8; l++)
+                if (i+32*l<mm) Q[l+8] -= vq*( As[i+32*l + k*ldas] );
+        }
+    }
+
+
+#pragma unroll
+    for (int k=0; k<8; k++) {
+        if (i+k*32<mm) A[i+k*32 + j*lda] = Q[k];
+        if (i+k*32<mm) A[i+k*32 + (j+16)*lda] = Q[k+8];
+    }
+
+
+}
+
+/*
+Householder QR for a MxN block; 256*32 assumed
+function [R,U] = house_qr(A)
+    % Householder reflections for QR decomposition.
+    % [R,U] = house_qr(A) returns
+    % R, the upper triangular factor, and
+    % U, the reflector generators for use by house_apply.
+    H = @(u,x) x - u*(u'*x);
+    [m,n] = size(A);
+    U = zeros(m,n);
+    R = A;
+    for j = 1:min(m,n)
+        u = house_gen(R(j:m,j));
+        U(j:m,j) = u;
+        R(j:m,j:n) = H(u,R(j:m,j:n));
+        R(j+1:m,j) = 0;
+    end
+end
+*/
 template<int M, int N>
 __global__ void hou_kernel2( int m, int n, float *AA, int lda, float *RR, int ldr )
 {
@@ -399,10 +593,12 @@ __global__ void hou_kernel2( int m, int n, float *AA, int lda, float *RR, int ld
     __shared__ float As[M*N], Rs[N];
     const int ldas = M/*, ldrs = N*/;
 
-    float acc0, acc1, acc2, acc3, acc4,acc5, acc6, acc7;
+    float acc0, acc1, acc2, acc3;
+    //acc4,acc5, acc6, acc7;
     const int i=threadIdx.x, j=threadIdx.y;
 
-#define R07(OP) {OP(0);OP(1);OP(2);OP(3);OP(4);OP(5);OP(6);OP(7);}
+//#define R07(OP) {OP(0);OP(1);OP(2);OP(3);OP(4);OP(5);OP(6);OP(7);}
+#define R03(OP) {OP(0);OP(1);OP(2);OP(3);}
 #define M1(it) if(threadIdx.x+it*32<mm) As[threadIdx.x+it*32+threadIdx.y*ldas] = A[threadIdx.x+it*32+threadIdx.y*lda]
 
 #pragma unroll 4
@@ -415,22 +611,21 @@ __global__ void hou_kernel2( int m, int n, float *AA, int lda, float *RR, int ld
     for (int k=0; k<mnmin; k++) {
         // reference: house_gen.m and house_qr from Cleve Moler blog.
         float nu = 0;
-#define M2(it) (threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)? \
-    acc##it = As[threadIdx.x+it*32+threadIdx.y*ldas] * As[threadIdx.x+it*32+threadIdx.y*ldas] : acc##it = 0
-#define M2a(it) if (threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k) \
-    nu +=  As[threadIdx.x+it*32+threadIdx.y*ldas] * As[threadIdx.x+it*32+threadIdx.y*ldas]
-        if(threadIdx.y==k) {
-
-            R07(M2)
-            nu = (acc0 + acc1) + (acc2 + acc3) + (acc4 + acc5) + (acc6 + acc7);
-
+        if(threadIdx.y==k) { // house_gen(k-th column)
+#define M2(it) (threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)? (acc##it = As[threadIdx.x+it*32+threadIdx.y*ldas] * As[threadIdx.x+it*32+threadIdx.y*ldas]) : (acc##it = 0)
+            R03(M2)
+            nu = (acc0 + acc1) + (acc2 + acc3);
+#define M2(it) (128+threadIdx.x+it*32<mm&&128+threadIdx.x+it*32>=k)? (acc##it = As[128+threadIdx.x+it*32+threadIdx.y*ldas] * As[128+threadIdx.x+it*32+threadIdx.y*ldas]) : (acc##it = 0)
+            R03(M2)
+            nu += (acc0 + acc1) + (acc2 + acc3);
             float normxsqr = (warpAllReduceSum(nu));
             float normx = sqrt(normxsqr);
 
             float scale = 1.0/normx;
 #define M3(it) if(threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k) As[threadIdx.x+it*32+threadIdx.y*ldas] *= scale
-            R07(M3);
-
+            R03(M3)
+#define M3(it) if(128+threadIdx.x+it*32<mm && 128+threadIdx.x+it*32>=k) As[128+threadIdx.x+it*32+threadIdx.y*ldas] *= scale
+            R03(M3)
             __syncwarp();
             if(threadIdx.x==k) {
                 float u1 = As[threadIdx.x+threadIdx.y*ldas];
@@ -441,22 +636,22 @@ __global__ void hou_kernel2( int m, int n, float *AA, int lda, float *RR, int ld
             __syncwarp();
             scale = 1.0/sqrt(abs(As[k+k*ldas]));
 
-            R07(M3);
+            R03(M3);
             __syncwarp();
         }
         __syncthreads();
-        if(threadIdx.y>k) {
+        if(threadIdx.y>k) { // update trailing matrix
             float uxl = 0;
-#define M4(it) (threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)? \
-    acc##it = As[threadIdx.x+it*32+threadIdx.y*ldas] * As[threadIdx.x+it*32+k*ldas]: acc##it = 0;
-#define M4a(it) if(threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k) \
-    uxl += As[threadIdx.x+it*32+threadIdx.y*ldas] * As[threadIdx.x+it*32+k*ldas]
-            R07(M4)
-            uxl = (acc0 + acc1) + (acc2 + acc3) + (acc4 + acc5) + (acc6 + acc7);
+#define M4(it) (threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k)? acc##it = As[threadIdx.x+it*32+threadIdx.y*ldas] * As[threadIdx.x+it*32+k*ldas]: acc##it = 0;
+            R03(M4)
+            uxl = (acc0 + acc1) + (acc2 + acc3);
+#define M4(it) (128+threadIdx.x+it*32<mm && 128+threadIdx.x+it*32>=k)? acc##it = As[128+threadIdx.x+it*32+threadIdx.y*ldas] * As[128+threadIdx.x+it*32+k*ldas]: acc##it = 0;
+            R03(M4)
+            uxl += (acc0 + acc1) + (acc2 + acc3);
             float ux = warpAllReduceSum(uxl);
-#define M5(it) if(threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k) \
-    As[threadIdx.x+it*32+threadIdx.y*ldas] -= ux * As[threadIdx.x+it*32+k*ldas]
-            R07(M5)
+#define M5(it) if(threadIdx.x+it*32<mm&&threadIdx.x+it*32>=k) As[threadIdx.x+it*32+threadIdx.y*ldas] -= ux * As[threadIdx.x+it*32+k*ldas]
+            R03(M5)
+
         }
     }
 
@@ -519,7 +714,7 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
 #define R07(OP) {OP(0);OP(1);OP(2);OP(3);OP(4);OP(5);OP(6);OP(7);}
 #define M1(it) if(threadIdx.x+it*32<mm) As[threadIdx.x+it*32+threadIdx.y*ldas] = A[threadIdx.x+it*32+threadIdx.y*lda]
 
-#pragma unroll 4
+//#pragma unroll 2
     for (int k=0; k<8; k++) {
         if(i+k*32<mm) As[i+k*32+j*ldas] = A[i+k*32+j*lda];
     }
@@ -585,7 +780,7 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
     }
 
     float Q[8];
-#pragma unroll 4
+//#pragma unroll 4
     for (int k=0; k<8; k++) {
         Q[k] = 0;
     }
@@ -593,18 +788,18 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
     for (int k=mnmin-1; k>=0; k--) {
         if(threadIdx.y>=k) {
             float acc = 0;
-#pragma unroll 4
+//#pragma unroll 2
             for (int l=0; l<8; l++)
                 acc += As[i+l*32+k*ldas] * Q[l];
             float vq = warpAllReduceSum(acc);
-#pragma unroll 4
+//#pragma unroll 2
             for (int l=0; l<8; l++)
                 if (i+32*l<mm) Q[l] -= vq*( As[i+32*l + k*ldas] );
 
         }
     }
 
-#pragma unroll 4
+//#pragma unroll 2
     for (int k=0; k<8; k++) {
         if (i+k*32<mm) A[i+k*32 + j*lda] = Q[k];
     }
@@ -615,3 +810,4 @@ __global__ void hou_kernel( int m, int n, float *AA, int lda, float *RR, int ldr
 
 template void hou_caqr_panel<256,32>( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work);
 template __global__ void hou_kernel2<256,32>( int m, int n, float *AA, int lda, float *RR, int ldr );
+template __global__ void hou_kernel3<256,32>( int m, int n, float *AA, int lda, float *RR, int ldr );
