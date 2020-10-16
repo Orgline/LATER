@@ -16,6 +16,7 @@ set_property(TARGET test_qr
 
 target_link_libraries(test_qr qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
 
+
 add_executable(test_potrf test_potrf.cu)
 set_property(TARGET test_potrf
         PROPERTY CUDA_SEPARABLE_COMPILATION ON)
@@ -53,10 +54,14 @@ set_property(TARGET test_hou_panel
 
 target_link_libraries(test_hou_panel qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
 
-
-
 add_executable(test_gemm test_gemm.cu)
 set_property(TARGET test_gemm
         PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 target_link_libraries(test_gemm  blas utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
+
+add_executable(test_oc_qr test_oc_qr.cu)
+set_property(TARGET test_oc_qr
+        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+
+target_link_libraries(test_oc_qr qr blas utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})

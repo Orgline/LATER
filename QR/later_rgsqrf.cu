@@ -59,16 +59,21 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float
     return;
 }
 
-void later_rgsqrf(int m, int n, float *A, int lda, float *R, int ldr, float *work, int lwork, __half *hwork, int lhwork)
+void later_rgsqrf(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work, int lwork, __half *hwork, int lhwork)
 {
+    //startTimer();
+    /*
     cudaCtxt ctxt;
     cublasCreate(&ctxt.cublas_handle );
     cusolverDnCreate(&ctxt.cusolver_handle );
-    
+    */
     qr( ctxt, m, n, A, m, R, ldr, work, lwork, hwork, lhwork );
-
+    /*
     cublasDestroy(ctxt.cublas_handle);
     cusolverDnDestroy(ctxt.cusolver_handle);
+    */
+    //float ms = stopTimer();
+    //printf("%fms\n",ms);
 
     return;
 }
