@@ -78,7 +78,9 @@ int main(int argc,char *argv[])
         cudaMalloc( &work, sizeof(float)*lwork );
         printf("Perform RGSQRF\nmatrix size %d*%d\n",m,n);
         //startTimer();
-        later_rgsqrf(m,n,A,m,R,n,work,lwork,hwork,lhwork);
+
+        later_rgsqrf(ctxt, m,n,A,m,R,n,work,lwork,hwork,lhwork);
+
         //float ms = stopTimer();
         //printf("RGSQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
                 //2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));

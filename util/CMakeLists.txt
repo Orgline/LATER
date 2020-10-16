@@ -1,4 +1,4 @@
-add_library(utility util.cu ../include/LATER.h)
+add_library(utility util.cu mem_pool.cu ../include/LATER.h ../include/mem_pool.h)
 
 target_include_directories(utility PUBLIC ../include ./include)
 

@@ -8,8 +8,8 @@ float sone = 1.0;
 float snegone = -1.0;
 float szero = 0.0;
 
-float panelTime = 0.0;
-float gemmTime = 0.0;
+//float panelTime = 0.0;
+//float gemmTime = 0.0;
 
 __global__
 void kernel_l_l_n( int m, int n, __half *AA, int lda, __half *BB, int ldb)

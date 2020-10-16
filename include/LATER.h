@@ -14,6 +14,8 @@
 #include <fstream>
 #include <iomanip>
 
+#include "OC_gemm.h"
+
 struct cudaCtxt {
 	cublasHandle_t cublas_handle;
 	cusolverDnHandle_t cusolver_handle;
@@ -34,7 +36,7 @@ ormqr2: form explicit Q from bhouqr result
 
 
 */
-void later_rgsqrf(int m, int n, float* A, int lda, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork);
+void later_rgsqrf(cudaCtxt ctxt, int m, int n, float* A, int lda, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork);
 
 void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U);
 
@@ -43,6 +45,11 @@ void later_ormqr(int m, int n, float* W, int ldw, float* Y, int ldy, float *work
 void later_bhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U);
 
 void later_ormqr2(int m, int n, float* W, int ldw, float* Y, int ldy, float *work);
+
+void later_oc_qr_rec(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, std::shared_ptr<Mem_pool> _pool);
+
+void later_oc_qr_blk(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, std::shared_ptr<Mem_pool> _pool);
+
 
 /*
 These functions are BLAS-3 matrix operations
@@ -56,9 +63,7 @@ void later_rsyrk(cublasHandle_t handle, int n, int k, float alpha, float* A, int
 
 void later_rtrmm(int m, int n, float* A, int lda, float* B, int ldb, float *C, int ldc, float *tempC,  __half* hwork);
 
-void later_oc_sgemm(cublasOperation_t transa, cublasOperation_t transb, int m, int n, int k,
-              const float &alpha, const float *A, int lda, const float *B, int ldb,
-              const float &beta, float *C, int ldc);
+
 
 /*
 These functions are related to Cholesky factorization
