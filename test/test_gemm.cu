@@ -27,11 +27,11 @@ int main(int ac, char **av) {
     std::uniform_real_distribution<float> distribution(0.0f, 2.0f);
     std::mt19937 engine;
     const auto f_data_size = f_data.size();
-#pragma omp parallel for
-    for (size_t i = 0; i < f_data_size; i++) {
-        f_data[i] = distribution(engine);
-        h_data[i] = __float2half(f_data[i]);
-    }
+    // #pragma omp parallel for
+    //     for (size_t i = 0; i < f_data_size; i++) {
+    //         f_data[i] = distribution(engine);
+    //         h_data[i] = __float2half(f_data[i]);
+    //     }
     auto hA = h_data.data();
     auto hB = &h_data.data()[size_t(m) * size_t(k)];
     auto fA = f_data.data();
@@ -42,18 +42,33 @@ int main(int ac, char **av) {
     float alpha = 1.0f;
     float beta = 1.0f;
 
+    if (size_t(m) * size_t(n) < 33) {
+        prt(fA, m * k);
+        prt(fB, n * k);
+    }
+
     auto pool = std::make_shared<Mem_pool>(mem); // Create memory pool
     /*
      * Usage:
      *  allocate memory: float* p = reinterpret_cast<float *>(pool->allocate(size));
      *  free memory: pool->free(p);
      */
-
-
-    OC_gemm OC(m, n, k, pool);
-    puts("Created");
-    OC.gemm(CUBLAS_OP_N, CUBLAS_OP_N, alpha, hA, m, hB, k, beta, C, m);
-    std::cout << C[0] << std::endl;
-    OC.gemm(CUBLAS_OP_N, CUBLAS_OP_N, alpha, fA, m, fB, k, beta, C, m);
-    std::cout << C[0] << std::endl;
+    auto OC = new OC_gemm(m, n, k, pool);
+    auto start = clock();
+    OC->gemm(CUBLAS_OP_N, CUBLAS_OP_T, alpha, hA, m, hB, k, beta, C, m);
+    std::cout << "Time: " << ((clock() - start) / (CLOCKS_PER_SEC / 1000)) << std::endl;
+    if (size_t(m) * size_t(n) > 33)
+        std::cout << C[0] << std::endl;
+    else
+        prt(C, m * n);
+    start = clock();
+    OC->gemm(CUBLAS_OP_T, CUBLAS_OP_N, alpha, fA, m, fB, k, beta, C, m);
+    std::cout << "Time: " << ((clock() - start) / (CLOCKS_PER_SEC / 1000)) << std::endl;
+    if (size_t(m) * size_t(n) > 33)
+        std::cout << C[0] << std::endl;
+    else
+        prt(C, m * n);
+    std::cout << pool->size() << "\n";
+    delete OC;
+    std::cout << pool->size() << "\n";
 }

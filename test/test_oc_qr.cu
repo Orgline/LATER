@@ -2,7 +2,7 @@
 #include "OC_gemm.h"
 
 #define BLOCKSIZE 128
-#define MEMORYSIZE 8192
+#define MEMORYSIZE 10240
 
 int m,n;
 int algo;

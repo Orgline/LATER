@@ -1,7 +1,7 @@
 #include "LATER.h"
 #include "OC_gemm.h"
 
-#define BLOCKSIZE 2048
+#define BLOCKSIZE 8192
 
 /*
 Output:
@@ -31,20 +31,20 @@ void later_oc_qr_rec(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
     if(n <= BLOCKSIZE)
     {
         startTimer();
-        std::cout << "pool free " << pool->size() << std::endl;
+        //std::cout << "pool free " << pool->size() << std::endl;
         float *dA = reinterpret_cast<float *>(pool->allocate(sizeof(float)*m*n));
-        std::cout << "pool free " << pool->size() << std::endl;
+        //std::cout << "pool free " << pool->size() << std::endl;
         float *dB = reinterpret_cast<float *>(pool->allocate(sizeof(float)*m/256*32*n));
-        std::cout << "pool free " << pool->size() << std::endl;
+        //std::cout << "pool free " << pool->size() << std::endl;
         float *dR = reinterpret_cast<float *>(pool->allocate(sizeof(float)*n*n));
-        std::cout << "pool free " << pool->size() << std::endl;
+        //std::cout << "pool free " << pool->size() << std::endl;
         /*
         size_t free, total;
         cudaMemGetInfo(&free, &total);
         std::cout << free << "\t" << total << std::endl;
         */
         __half *hwork = reinterpret_cast<__half *>(pool->allocate(sizeof(__half)*m*n));
-        std::cout << "pool free " << pool->size() << std::endl;
+        //std::cout << "pool free " << pool->size() << std::endl;
         //startTimer();
         panel(ctxt, m, n, A, lda, R, ldr, dA, dB, dR, hwork);
 
@@ -68,21 +68,21 @@ void later_oc_qr_rec(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
 
 
     startTimer();
-    OC_gemm OC(n/2, n/2, m, pool);
+    OC_gemm *OC = new OC_gemm(n/2, n/2, m, pool);
 
-    OC.gemm(CUBLAS_OP_T, CUBLAS_OP_N, sone, A, lda, A+n/2*lda, lda, szero, R+n/2*ldr, ldr);
+    OC->gemm(CUBLAS_OP_T, CUBLAS_OP_N, sone, A, lda, A+n/2*lda, lda, szero, R+n/2*ldr, ldr);
 
     //delete &OC1;
 
     //OC_gemm OC2(m, n/2, n/2);
 
-    OC.gemm(CUBLAS_OP_N, CUBLAS_OP_N, snegone, A, lda,R+n/2*ldr, ldr, sone, A+n/2*lda, lda);
+    OC->gemm(CUBLAS_OP_N, CUBLAS_OP_N, snegone, A, lda,R+n/2*ldr, ldr, sone, A+n/2*lda, lda);
 
     float ms = stopTimer();
     oc_gemm_time += ms;
     printf("Gemm takes %lf ms\n", oc_gemm_time);
 
-    //delete &OC;
+    delete OC;
 
     //delete &OC2;
 

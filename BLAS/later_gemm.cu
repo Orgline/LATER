@@ -49,50 +49,42 @@ static int is_mul_overflow(int a, int b) {
     }
 }
 
-void OC_gemm::tile_size() {
+size_t OC_gemm::tile_size() {
     auto free_mem_stream = mem_limit / num_stream;
     int i = 1;
+    size_t mem_per_stream = 0;
     do {
         tm = M / i;
         tn = N / i;
-        tk = K / i;
         i *= 2;
-        if (is_mul_overflow(tk, sizeof(float)) || is_mul_overflow(tn, sizeof(float)) ||
-            is_mul_overflow(tm, tn * sizeof(float)) || is_mul_overflow(tm, tk * sizeof(float)) ||
-            is_mul_overflow(tn, tk * sizeof(float)))
-            continue;
-        size_t dev_mem_per_stream =
-            size_t(tm * tn * sizeof(float)) + size_t(tm * tk * sizeof(half)) +
-            size_t(tn * tk * sizeof(half)) + size_t(tm * tk * sizeof(float)) +
-            size_t(tn * tk * sizeof(float));
-        if (dev_mem_per_stream < free_mem_stream) break;
+        if (is_mul_overflow(tm, K) || is_mul_overflow(tn, K)) continue;
+        mem_per_stream = (size_t(tm * K) + size_t(tm * tn) + size_t(K * tn)) * sizeof(float) +
+                         (size_t(tm * K) + size_t(K * tn)) * sizeof(half);
+        if (mem_per_stream < free_mem_stream) break;
     } while (true);
+    return mem_per_stream;
 }
 
 OC_gemm::OC_gemm(int _M, int _N, int _K, std::shared_ptr<Mem_pool> _pool, size_t _mem_limit,
                  int _num_stream)
-    : M(_M), N(_N), K(_K), pool(_pool), mem_limit(_mem_limit), num_stream(_num_stream) {
+    : M(_M), N(_N), K(_K), pool(_pool), mem_limit(_mem_limit), num_stream(_num_stream),
+      streams(_num_stream), handles(_num_stream), A_tiles(_num_stream), B_tiles(_num_stream),
+      C_tiles(_num_stream), fA_tiles(_num_stream), fB_tiles(_num_stream) {
     mem_limit = mem_limit == 0 ? (pool->capacity() - pool->size()) : mem_limit;
-    streams = arr_t<cudaStream_t>(new cudaStream_t[num_stream]);
-    handles = arr_t<cublasHandle_t>(new cublasHandle_t[num_stream]);
-    A_tiles = arr_t<half *>(new half *[num_stream]);
-    B_tiles = arr_t<half *>(new half *[num_stream]);
-    C_tiles = arr_t<float *>(new float *[num_stream]);
-    fA_tiles = arr_t<float *>(new float *[num_stream]);
-    fB_tiles = arr_t<float *>(new float *[num_stream]);
     for (int i = 0; i < num_stream; i++) {
         cudaChk(cudaStreamCreateWithFlags(&streams[i], cudaStreamNonBlocking));
         cublasChk(cublasCreate(&handles[i]));
         cublasChk(cublasSetStream(handles[i], streams[i]));
         cublasChk(cublasSetMathMode(handles[i], CUBLAS_TENSOR_OP_MATH));
     }
-    tile_size();
+    auto mem_per_stream = tile_size();
+    // std::cout << tm << "\t" << tn << "\n";
     for (int i = 0; i < num_stream; i++) {
-        A_tiles[i] = reinterpret_cast<half *>(pool->allocate(tm * tk * sizeof(half)));
-        B_tiles[i] = reinterpret_cast<half *>(pool->allocate(tn * tk * sizeof(half)));
-        C_tiles[i] = reinterpret_cast<float *>(pool->allocate(tm * tn * sizeof(float)));
-        fA_tiles[i] = reinterpret_cast<float *>(pool->allocate(tm * tk * sizeof(float)));
-        fB_tiles[i] = reinterpret_cast<float *>(pool->allocate(tn * tk * sizeof(float)));
+        fA_tiles[i] = reinterpret_cast<float *>(pool->allocate(sizeof(float) * tm * K));
+        fB_tiles[i] = reinterpret_cast<float *>(pool->allocate(sizeof(float) * tn * K));
+        C_tiles[i] = reinterpret_cast<float *>(pool->allocate(sizeof(float) * tn * tm));
+        A_tiles[i] = reinterpret_cast<half *>(pool->allocate(sizeof(half) * tm * K));
+        B_tiles[i] = reinterpret_cast<half *>(pool->allocate(sizeof(half) * tm * K));
     }
 }
 
@@ -100,64 +92,53 @@ OC_gemm::~OC_gemm() {
     for (int i = 0; i < num_stream; i++) {
         cudaChk(cudaStreamDestroy(streams[i]));
         cublasChk(cublasDestroy(handles[i]));
-    }
-    for (int i = 0; i < num_stream; i++) {
-        pool->free(A_tiles[i]);
-        pool->free(B_tiles[i]);
-        pool->free(C_tiles[i]);
         pool->free(fA_tiles[i]);
         pool->free(fB_tiles[i]);
+        pool->free(C_tiles[i]);
+        pool->free(A_tiles[i]);
+        pool->free(B_tiles[i]);
     }
 }
 
 void OC_gemm::gemm(cublasOperation_t transa, cublasOperation_t transb, const float &alpha,
                    const half *A, int lda, const half *B, int ldb, const float &beta, float *C,
                    int ldc) {
+    int tlda = transa == CUBLAS_OP_N ? tm : K;
+    int tldb = transb == CUBLAS_OP_N ? K : tn;
     for (size_t i = 0; i < (M / tm); i++) {
+        const auto stream_id = i % num_stream;
+        auto stream = streams[stream_id];
+        if (transa == CUBLAS_OP_N) {
+            cublasChk(cublasSetMatrixAsync(tm, K, sizeof(half), &A[i * tm], M, A_tiles[stream_id],
+                                           tlda, stream));
+
+        } else {
+            cublasChk(cublasSetMatrixAsync(K, tm, sizeof(half), &A[i * tm * K], K,
+                                           A_tiles[stream_id], tlda, stream));
+        }
         for (size_t j = 0; j < (N / tn); j++) {
-            const auto stream_id = (i * N / tn + j) % num_stream;
-            auto stream = streams[stream_id];
-            auto pC = &C[j * tn * M + i * tm];
-            for (int a = 0; a < (K / tk); a++) {
-                int tlda, tldb;
-                const half *pA, *pB;
-                if (transa == CUBLAS_OP_N) {
-                    pA = &A[a * tk * M + i * tm];
-                    cublasChk(cublasSetMatrixAsync(tm, tk, sizeof(half), pA, M, A_tiles[stream_id],
-                                                   tm, stream));
-                    tlda = tm;
-                } else {
-                    pA = &A[i * tk * M + a * tm];
-                    cublasChk(cublasSetMatrixAsync(tk, tm, sizeof(half), pA, K, A_tiles[stream_id],
-                                                   tk, stream));
-                    tlda = tk;
-                }
-                if (transb == CUBLAS_OP_N) {
-                    pB = &B[j * tn * K + a * tk];
-                    cublasChk(cublasSetMatrixAsync(tk, tn, sizeof(half), pB, K, B_tiles[stream_id],
-                                                   tk, stream));
-                    tldb = tk;
-                } else {
-                    pB = &B[a * tn * K + j * tk];
-                    cublasChk(cublasSetMatrixAsync(tn, tk, sizeof(half), pB, N, B_tiles[stream_id],
-                                                   tn, stream));
-                    tldb = tn;
-                }
-                cublasChk(cublasGemmEx(handles[stream_id], transa, transb, tm, tn, tk, &alpha,
-                                       A_tiles[stream_id], CUDA_R_16F, tlda, B_tiles[stream_id],
-                                       CUDA_R_16F, tldb, &beta, C_tiles[stream_id], CUDA_R_32F, tm,
-                                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+            if (transb == CUBLAS_OP_N) {
+                cublasChk(cublasSetMatrixAsync(K, tn, sizeof(half), &B[j * tn * K], K,
+                                               B_tiles[stream_id], tldb, stream));
+            } else {
+                cublasChk(cublasSetMatrixAsync(tn, K, sizeof(half), &B[j * tn], N,
+                                               B_tiles[stream_id], tldb, stream));
             }
-            cublasChk(
-                cublasGetMatrixAsync(tm, tn, sizeof(float), C_tiles[stream_id], tm, pC, M, stream));
+            cublasChk(cublasGemmEx(handles[stream_id], transa, transb, tm, tn, K, &alpha,
+                                   A_tiles[stream_id], CUDA_R_16F, tlda, B_tiles[stream_id],
+                                   CUDA_R_16F, tldb, &beta, C_tiles[stream_id], CUDA_R_32F, tm,
+                                   CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+            cublasChk(cublasGetMatrixAsync(tm, tn, sizeof(float), C_tiles[stream_id], tm,
+                                           &C[j * tn * M + i * tm], M, stream));
             cudaChk(cudaMemsetAsync(C_tiles[stream_id], 0, tm * tn * sizeof(float), stream));
         }
     }
     cudaChk(cudaDeviceSynchronize());
 }
 
-__global__ void AB2half(half *__restrict__ hA, half *__restrict__ hB, const float *__restrict__ fA,
-                        const float *__restrict__ fB, const int size_A, const int size_B) {
+__global__ void __kernel_AB2half(const float *__restrict__ fA, const float *__restrict__ fB,
+                                 half *__restrict__ hA, half *__restrict__ hB, const int size_A,
+                                 const int size_B) {
     const auto tid = threadIdx.x + blockDim.x * blockIdx.x;
     for (auto i = tid; i < size_A; i += gridDim.x * blockDim.x)
         hA[i] = __float2half(fA[i]);
@@ -168,54 +149,44 @@ __global__ void AB2half(half *__restrict__ hA, half *__restrict__ hB, const floa
 void OC_gemm::gemm(cublasOperation_t transa, cublasOperation_t transb, const float &alpha,
                    const float *A, int lda, const float *B, int ldb, const float &beta, float *C,
                    int ldc) {
+
+    int tlda = transa == CUBLAS_OP_N ? tm : K;
+    int tldb = transb == CUBLAS_OP_N ? K : tn;
     for (size_t i = 0; i < (M / tm); i++) {
+        const auto stream_id = i % num_stream;
+        auto stream = streams[stream_id];
+        if (transa == CUBLAS_OP_N) {
+            cublasChk(cublasSetMatrixAsync(tm, K, sizeof(float), &A[i * tm], M, A_tiles[stream_id],
+                                           tlda, stream));
+
+        } else {
+            cublasChk(cublasSetMatrixAsync(K, tm, sizeof(float), &A[i * tm * K], K,
+                                           A_tiles[stream_id], tlda, stream));
+        }
         for (size_t j = 0; j < (N / tn); j++) {
-            const auto stream_id = (i * N / tn + j) % num_stream;
-            auto stream = streams[stream_id];
-            auto pC = &C[j * tn * M + i * tm];
-            for (int a = 0; a < (K / tk); a++) {
-                int tlda, tldb;
-                const float *pA, *pB;
-                if (transa == CUBLAS_OP_N) {
-                    pA = &A[a * tk * M + i * tm];
-                    cublasChk(cublasSetMatrixAsync(tm, tk, sizeof(float), pA, M,
-                                                   fA_tiles[stream_id], tm, stream));
-                    tlda = tm;
-                } else {
-                    pA = &A[i * tk * M + a * tm];
-                    cublasChk(cublasSetMatrixAsync(tk, tm, sizeof(float), pA, K,
-                                                   fA_tiles[stream_id], tk, stream));
-                    tlda = tk;
-                }
-                if (transb == CUBLAS_OP_N) {
-                    pB = &B[j * tn * K + a * tk];
-                    cublasChk(cublasSetMatrixAsync(tk, tn, sizeof(float), pB, K,
-                                                   fB_tiles[stream_id], tk, stream));
-                    tldb = tk;
-                } else {
-                    pB = &B[a * tn * K + j * tk];
-                    cublasChk(cublasSetMatrixAsync(tn, tk, sizeof(float), pB, N,
-                                                   fB_tiles[stream_id], tn, stream));
-                    tldb = tn;
-                }
-                int size_A = tm * tk;
-                int size_B = tn * tk;
-                AB2half<<<(std::max(size_A, size_B) / 1024) + 1, 1024, 0, stream>>>(
-                    A_tiles[stream_id], B_tiles[stream_id], fA_tiles[stream_id],
-                    fB_tiles[stream_id], size_A, size_B);
-                cublasChk(cublasGemmEx(handles[stream_id], transa, transb, tm, tn, tk, &alpha,
-                                       A_tiles[stream_id], CUDA_R_16F, tlda, B_tiles[stream_id],
-                                       CUDA_R_16F, tldb, &beta, C_tiles[stream_id], CUDA_R_32F, tm,
-                                       CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+            if (transb == CUBLAS_OP_N) {
+                cublasChk(cublasSetMatrixAsync(K, tn, sizeof(float), &B[j * tn * K], K,
+                                               B_tiles[stream_id], tldb, stream));
+            } else {
+                cublasChk(cublasSetMatrixAsync(tn, K, sizeof(float), &B[j * tn], N,
+                                               B_tiles[stream_id], tldb, stream));
             }
-            cublasChk(
-                cublasGetMatrixAsync(tm, tn, sizeof(float), C_tiles[stream_id], tm, pC, M, stream));
+            auto size_A = tm * K;
+            auto size_B = tn * K;
+            __kernel_AB2half<<<(std::max(size_A, size_B) / 1024) + 1, 1024, 0, stream>>>(
+                fA_tiles[stream_id], fB_tiles[stream_id], A_tiles[stream_id], B_tiles[stream_id],
+                size_A, size_B);
+            cublasChk(cublasGemmEx(handles[stream_id], transa, transb, tm, tn, K, &alpha,
+                                   A_tiles[stream_id], CUDA_R_16F, tlda, B_tiles[stream_id],
+                                   CUDA_R_16F, tldb, &beta, C_tiles[stream_id], CUDA_R_32F, tm,
+                                   CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+            cublasChk(cublasGetMatrixAsync(tm, tn, sizeof(float), C_tiles[stream_id], tm,
+                                           &C[j * tn * M + i * tm], M, stream));
             cudaChk(cudaMemsetAsync(C_tiles[stream_id], 0, tm * tn * sizeof(float), stream));
         }
     }
     cudaChk(cudaDeviceSynchronize());
 }
-
 /*
 
 #ifdef TEST_OC
