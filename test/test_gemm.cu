@@ -1,5 +1,7 @@
 #include "OC_gemm.h"
 #include "LATER.h"
+#include <random>
+#include <assert.h>
 
 template <typename T> void prt(T *arr, int size) {
     for (int i = 0; i < size; i++)
