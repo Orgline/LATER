@@ -1,67 +1,10 @@
-message("CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
-message("CUTLASS_DIR $ENV{CUTLASS_DIR}")
-
-#file(TO_CMAKE_PATH "$ENV{CUTLASS_DIR}" CUTLASS_DIR_INTERNAL)
-
-include_directories(
-        ./include
-        ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-        $ENV{CUTLASS_DIR}/include
-        $ENV{CUTLASS_DIR}/tools/util/include
-)
-
-add_executable(test_qr test_qr.cu)
-set_property(TARGET test_qr
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(test_qr qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
-
-
-add_executable(test_potrf test_potrf.cu)
-set_property(TARGET test_potrf
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(test_potrf chol blas utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
-
-add_executable(test_trsm test_trsm.cu)
-set_property(TARGET test_trsm
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(test_trsm blas utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
-
-add_executable(test_syrk test_syrk.cu)
-set_property(TARGET test_syrk
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(test_syrk blas utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
-
-add_executable(test_trmm test_trmm.cu)
-set_property(TARGET test_trmm
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(test_trmm blas utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
-
-
-add_executable(test_mgs_panel test_mgs_panel.cu)
-set_property(TARGET test_mgs_panel
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(test_mgs_panel qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
-
-add_executable(test_hou_panel test_hou_panel.cu)
-set_property(TARGET test_hou_panel
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(test_hou_panel qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
-
-add_executable(test_gemm test_gemm.cu)
-set_property(TARGET test_gemm
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(test_gemm  blas utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
-
-add_executable(test_oc_qr test_oc_qr.cu)
-set_property(TARGET test_oc_qr
-        PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(test_oc_qr qr blas utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
+file(GLOB TEST_SOURCES "*.cu")
+message(${TEST_SOURCES})
+foreach(SRC ${TEST_SOURCES})
+    get_filename_component(NAME ${SRC} NAME_WE)
+    message(${NAME})
+    add_executable(${NAME} "${NAME}.cu")
+    set_property(TARGET ${NAME}
+            PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+    target_link_libraries(${NAME} qr utility ${CUDART_LIBRARY} ${CUBLAS_LIBRARY} ${CUSOLVER_LIBRARY})
+endforeach()
