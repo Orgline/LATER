@@ -44,8 +44,8 @@ void Mem_pool::free(void *ptr) {
 Mem_pool::~Mem_pool() { cudaChk(cudaFree(mem_ptr)); }
 
 size_t Mem_pool::size() const {
-    size_t b_addr = reinterpret_cast<size_t>(frames.front());
-    size_t f_addr = reinterpret_cast<size_t>(frames.back());
+    auto b_addr = (frames.front());
+    auto f_addr = (frames.back());
     return f_addr - b_addr;
 }
 

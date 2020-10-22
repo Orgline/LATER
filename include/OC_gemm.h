@@ -1,6 +1,6 @@
 #pragma once
 #include "mem_pool.h"
-#include <bits/stdc++.h>
+//#include <bits/stdc++.h>
 #include <cublas_v2.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime_api.h>

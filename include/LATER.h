@@ -195,7 +195,7 @@ __global__ void clearTri(char uplo, int m, int n, float *a, int lda);
 #endif
 
 #ifdef DEBUG_CUDA_KERNEL_LAUNCH
-#define CHECK_KERNEL(x)  do { \
+#define CHECK_KERNEL()  do { \
         gpuErrchk( cudaDeviceSynchronize() ); gpuErrchk( cudaPeekAtLastError() );\
     } while (0)
 #else

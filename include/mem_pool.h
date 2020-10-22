@@ -1,5 +1,9 @@
 #pragma once
-#include <bits/stdc++.h>
+//#include <bits/stdc++.h>
+#include <vector>
+#include <memory> // for shared_ptr
+#include <algorithm> // for std::max
+#include <iostream>
 
 class Mem_pool {
 private:

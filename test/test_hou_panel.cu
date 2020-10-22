@@ -1,4 +1,4 @@
-#define DEBUG_CUDA_KERNEL_LAUNCH
+//#define DEBUG_CUDA_KERNEL_LAUNCH
 
 #include "LATER.h"
 #include "LATER_QR.h"

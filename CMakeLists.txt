@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.12)
 project(later LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 14)
@@ -14,12 +14,6 @@ if( MAGMA_FOUND )
     add_definitions(-DMAGMA)
 endif( MAGMA_FOUND )
 
-IF(CMAKE_BUILD_TYPE MATCHES Debug)
-    message("debug mode; enabling dbgprint")
-    add_definitions(-DDBGPRINT)
-    add_definitions(-DDEBUG_CUDA_KERNEL_LAUNCH)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -Xcompiler -rdynamic -lineinfo")
-ENDIF(CMAKE_BUILD_TYPE MATCHES Debug)
 
 
 find_library(
@@ -46,6 +40,7 @@ find_library(
         ${CUBLAS_PATH}/lib64
         ${CUBLAS_PATH}/lib/x64
         /usr/lib/x86_64-linux-gnu)
+IF(NOT WIN32)
 find_library(
         CUDART_LIBRARY cudart
         HINTS
@@ -58,6 +53,7 @@ find_library(
         ${CUBLAS_PATH}/lib64
         ${CUBLAS_PATH}/lib/x64
         /usr/lib/x86_64-linux-gnu)
+ENDIF(NOT WIN32)
 find_library(
         CURAND_LIBRARY curand
         HINTS
