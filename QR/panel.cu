@@ -342,11 +342,11 @@ template<int M, int N>
 void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work)
 {
     dbgprintf("hou_caqr_panel(m=%d,n=%d,lda=%d,ldr=%d",m, n, lda, ldr);
-    dim3 blockdim(32, N);
+    dim3 blockdim(32, 16);
     if ( m <= M ) {
         dbgprintf("launching hou_kernel<%d,%d><<<(%d),(%d,%d)>>>(%d,%d,%d,%d)\n",
                 M, N, 1, blockdim.x, blockdim.y, m, n, lda, ldr);
-        hou_kernel<M, N><<<1,blockdim>>>(m, n, A, lda, R, ldr);
+        hou_kernel3<M, N><<<1,blockdim>>>(m, n, A, lda, R, ldr);
 
         CHECK_KERNEL();
 
@@ -360,7 +360,7 @@ void hou_caqr_panel( cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, i
     int mm = NB*N;
     dbgprintf("launching hou_kernel<%d,%d><<<(%d),(%d,%d)>>>(%d,%d,%d,%d)\n",
            M, N, NB, blockdim.x, blockdim.y, m, n, lda, ldwork);
-    hou_kernel<M,N><<<NB,blockdim>>>(m, n, A, lda, work, ldwork);
+    hou_kernel3<M,N><<<NB,blockdim>>>(m, n, A, lda, work, ldwork);
 
     CHECK_KERNEL();
     hou_caqr_panel<M,N>( ctxt, mm, n, work, ldwork, R, ldr,  work+ldwork*n );
