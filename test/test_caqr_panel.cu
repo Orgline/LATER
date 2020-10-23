@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
         hou_caqr_panel<256,32>(ctxt, m, n, A, lda, R, ldr, work);
         float ms = stopTimer();
         CHECK_KERNEL();
-        printf("%dx%d mgs_caqr_panel_256x32 block takes %.3f (ms)\n", m, n, ms);
+        printf("%dx%d hou_caqr_panel_256x32 block takes %.3f (ms)\n", m, n, ms);
         cudaFree(work);
     }
     printMatrixDeviceBlock("Q.csv", m, n, A, lda);
@@ -46,8 +46,8 @@ int main(int argc, char* argv[])
 
 
         startTimer();
-
-//        mgs_nonrec( m, n, A, lda, R, ldr);
+        mgs_caqr_panel_256x32(ctxt, m, n, A, lda, R, ldr, work);
+//        ( m, n, A, lda, R, ldr);
         float ms = stopTimer();
         CHECK_KERNEL();
         printf("%dx%d mgs_caqr_panel_256x32 block takes %.3f (ms)\n", m, n, ms);

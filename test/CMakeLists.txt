@@ -1,5 +1,9 @@
+include_directories(
+        ../QR/include
+)
+
 file(GLOB TEST_SOURCES "*.cu")
-message(${TEST_SOURCES})
+
 foreach(SRC ${TEST_SOURCES})
     get_filename_component(NAME ${SRC} NAME_WE)
     message(${NAME})

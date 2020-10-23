@@ -1,6 +1,9 @@
-add_library(qr later_rhouqr.cu later_rgsqrf.cu later_bhouqr.cu later_ormqr.cu panel.cu later_oc_qr.cu ./include/LATER_QR.h)
+include_directories(
+        ./include
+)
+add_library(qr later_rhouqr.cu later_rgsqrf.cu later_bhouqr.cu later_ormqr.cu panel.cu later_oc_qr.cu)
 
-target_include_directories(qr PUBLIC ../include ./include)
+target_include_directories(qr PUBLIC)
 
 target_link_libraries(qr PRIVATE  blas cublas cusolver)
 
