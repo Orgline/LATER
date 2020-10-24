@@ -2,6 +2,8 @@ include_directories(
         ../QR/include
 )
 
+configure_file(check_qr.jl check_qr.jl COPYONLY)
+
 file(GLOB TEST_SOURCES "*.cu")
 
 foreach(SRC ${TEST_SOURCES})

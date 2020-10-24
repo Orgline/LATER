@@ -14,7 +14,11 @@ if( MAGMA_FOUND )
     add_definitions(-DMAGMA)
 endif( MAGMA_FOUND )
 
-
+if(WIN32)
+    message("WIN32 Platform")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -DWIN32")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -DWIN32")
+endif()
 
 find_library(
         CUBLAS_LIBRARY cublas
