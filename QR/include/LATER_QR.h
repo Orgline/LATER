@@ -20,6 +20,7 @@ struct F4add
 void mgs_caqr_panel_256x128(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work);
 
 void mgs_caqr_panel_256x32(cudaCtxt ctxt, int m, int n, float *A, int lda, float *R, int ldr, float *work);
+void mgs_panel_general(int m, int n, float *A, int lda, float *R, int ldr, float *work);
 
 __global__ void mgs_kernel(int m, int n, float *AA, int lda, float *RR, int ldr);
 __global__ void mgs_kernel2(int m, int n, float *AA, int lda, float *RR, int ldr);

@@ -38,10 +38,9 @@ void check_qr()
 int main(int argc, char* argv[])
 {
     float *A;
-    int m=4096; // 32*256
+    int m=1024; // 32*256
     int n=32;
     cudaMalloc(&A, sizeof(float)*m*n);
-    generateUniformMatrix(A, m, n);
     int nb = (m+255)/256;
     int r = m%256;
     int ldwork = m/256*32+32;
@@ -50,7 +49,7 @@ int main(int argc, char* argv[])
 
     print_env();
 
-    printMatrixDeviceBlock<float>("A.csv",m,n,A,lda);
+
 
     float *R;
     int ldr = n;
@@ -58,7 +57,10 @@ int main(int argc, char* argv[])
     cudaCtxt ctxt{};
     cublasCreate(&ctxt.cublas_handle );
     cusolverDnCreate(&ctxt.cusolver_handle );
+
     {
+        generateUniformMatrix(A, m, n);
+        printMatrixDeviceBlock<float>("A.csv",m,n,A,lda);
         float *work;
         cudaMalloc(&work, 2*sizeof(float)*m*n);
         startTimer();
@@ -67,11 +69,12 @@ int main(int argc, char* argv[])
         CHECK_KERNEL();
         printf("%dx%d hou_caqr_panel_256x32 block takes %.3f (ms)\n", m, n, ms);
         cudaFree(work);
-    }
-    printMatrixDeviceBlock("Q.csv", m, n, A, lda);
-    printMatrixDeviceBlock("R.csv", n, n, R, ldr);
+        printMatrixDeviceBlock("Q.csv", m, n, A, lda);
+        printMatrixDeviceBlock("R.csv", n, n, R, ldr);
 
-    check_qr();
+        check_qr();
+    }
+
 
 
     {
@@ -85,6 +88,23 @@ int main(int argc, char* argv[])
         CHECK_KERNEL();
         printf("%dx%d mgs_caqr_panel_256x32 block takes %.3f (ms)\n", m, n, ms);
         cudaFree(work);
+    }
+
+    {
+        generateUniformMatrix(A, m, n);
+        printMatrixDeviceBlock<float>("A.csv",m,n,A,lda);
+        float *work;
+        cudaMalloc(&work, n);
+        startTimer();
+        mgs_panel_general(m, n, A, lda, R, ldr, work);
+        float ms = stopTimer();
+        CHECK_KERNEL();
+        printf("%dx%d hou_caqr_panel_256x32 block takes %.3f (ms)\n", m, n, ms);
+        cudaFree(work);
+        printMatrixDeviceBlock("Q.csv", m, n, A, lda);
+        printMatrixDeviceBlock("R.csv", n, n, R, ldr);
+
+        check_qr();
     }
 
 }
