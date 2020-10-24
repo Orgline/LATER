@@ -31,7 +31,7 @@ void check_qr()
 {
     std::cout << "Validating QR with Julia" << std::endl;
     std::cout << "=========================" << std::endl;
-    std::cout << exec("julia.exe check_qr.jl");
+    std::cout << exec("julia check_qr.jl");
     std::cout << "=========================" << std::endl;
 }
 
