@@ -38,10 +38,10 @@ void check_qr()
 int main(int argc, char* argv[])
 {
     float *A;
-    int m=1024; // 32*256
+    int m=4096; // 32*256
     int n=32;
     cudaMalloc(&A, sizeof(float)*m*n);
-    int nb = (m+255)/256;
+
     int r = m%256;
     int ldwork = m/256*32+32;
     int mm = m/256*32+32;
@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
 
     float *R;
     int ldr = n;
-    cudaMalloc(&R, sizeof(float)*n*n*nb);
+    cudaMalloc(&R, sizeof(float)*n*n);
     cudaCtxt ctxt{};
     cublasCreate(&ctxt.cublas_handle );
     cusolverDnCreate(&ctxt.cusolver_handle );
@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
         mgs_panel_general(m, n, A, lda, R, ldr, work);
         float ms = stopTimer();
         CHECK_KERNEL();
-        printf("%dx%d hou_caqr_panel_256x32 block takes %.3f (ms)\n", m, n, ms);
+        printf("%dx%d mgs_panel_general takes %.3f (ms)\n", m, n, ms);
         cudaFree(work);
         printMatrixDeviceBlock("Q.csv", m, n, A, lda);
         printMatrixDeviceBlock("R.csv", n, n, R, ldr);
