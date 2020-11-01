@@ -9,9 +9,9 @@ The output W stores the W matrix of WY representation
 THe output R stores the upper triangular matrix
 */
 
-#define NMIN 512
+#define NMIN 128
 
-bool wflag = false;
+bool wflag = true;
 
 
 void printMatrixDeviceBlock_(char *filename,int m, int n, float *dA, int lda)
@@ -52,16 +52,16 @@ void copyAndClear( int m, int n, float *da, int lda, float *db, int ldb )
 	}
 }
 
-void formW(int m, int n, float* W, int ldw, float* Y, int ldy, float *work)
+void formW(cudaCtxt ctxt, int m, int n, float* W, int ldw, float* Y, int ldy, float *work)
 {
-    cublasHandle_t handle;
-    cublasCreate(&handle);
+    //cublasHandle_t handle;
+    //cublasCreate(&handle);
 
     float sone = 1.0;
     float snegone = -1.0;
     float szero = 0.0;
 
-    cublasSgemm(handle,
+    cublasSgemm(ctxt.cublas_handle,
         CUBLAS_OP_T, CUBLAS_OP_N,
         n/2,n/2,m,
         &sone,
@@ -71,7 +71,7 @@ void formW(int m, int n, float* W, int ldw, float* Y, int ldy, float *work)
         work,n/2
     );
 
-    cublasSgemm(handle,
+    cublasSgemm(ctxt.cublas_handle,
         CUBLAS_OP_N, CUBLAS_OP_N,
         m,n/2,n/2,
         &snegone,
@@ -112,7 +112,7 @@ void later_bhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
         startTimer();
         later_rhouqr(m-i, nb, A+i*lda+i, lda, W+i*lda+i, ldw, R+i*ldr+i, ldr, work, lwork, hwork, lhwork, U);
         
-        formW(m-i, nb, W+i*lda+i, ldw, A+i*lda+i, lda, work);
+        formW(ctxt, m-i, nb, W+i*lda+i, ldw, A+i*lda+i, lda, work);
         panelTime += stopTimer();
         
         //printMatrixDeviceBlock_("W.csv", m-i, nb, W+i*lda+i, ldw);
@@ -149,7 +149,7 @@ void later_bhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
             dim3 block( 32, 32 );
             copyAndClear<<<grid, block>>>(nb, n - i - nb, A+(i+nb)*lda+i, lda, R+(i+nb)*ldr+i, ldr); 
         }
-    
+        gemmTime += stopTimer();
 
         //update W
         if(i!=0 && wflag)
@@ -174,7 +174,7 @@ void later_bhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
                 W+i*lda,ldw
             );
         }
-        gemmTime += stopTimer();
+        
         //printMatrixDeviceBlock_("WW.csv", m, n, W, ldw);
         //printMatrixDeviceBlock_("YY.csv", m, n, A, lda);
         
