@@ -77,6 +77,7 @@ add_subdirectory(util)
 add_subdirectory(test)
 add_subdirectory(benchmark)
 add_subdirectory(Cholesky)
+add_subdirectory(EVD)
 
 message("CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 message("CUTLASS_DIR $ENV{CUTLASS_DIR}")

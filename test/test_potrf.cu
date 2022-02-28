@@ -77,7 +77,7 @@ int main(int argc,char *argv[])
 
     //printf("n = %d\n", n);
 
-    later_rpotrf('l', n ,A, n, work, hwork);
+    //later_rpotrf('l', n ,A, n, work, hwork);
 
     //printMatrixDeviceBlock("LL.csv", n,n, A,n);
 

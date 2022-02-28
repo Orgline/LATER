@@ -63,7 +63,11 @@ void later_rsyrk(cublasHandle_t handle, int n, int k, float alpha, float* A, int
 
 void later_rtrmm(int m, int n, float* A, int lda, float* B, int ldb, float *C, int ldc, float *tempC,  __half* hwork);
 
+/*
+These functions are related to EVD
+*/
 
+void later_qdwh_polar();
 
 /*
 These functions are related to Cholesky factorization
@@ -186,6 +190,9 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 __global__ void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb );
 void sSubstract(cublasHandle_t handle, int m,int n, float* dA,int lda, float* dB, int ldb);
 __global__ void clearTri(char uplo, int m, int n, float *a, int lda);
+
+__global__
+void sSubstractAndSquare( int m, int n, float* dA,int lda, float* dB, int ldb);
 
 #ifdef DBGPRINT
 #define dbgprintf(fmt, ...) \
