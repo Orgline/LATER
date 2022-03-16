@@ -99,6 +99,16 @@ void sSubstract(cublasHandle_t handle, int m,int n, float* dA,int lda, float* dB
 }
 
 __global__
+void sSubstractAndSquare(int m, int n, float* dA,int lda, float* dB, int ldb)
+{
+    int i = threadIdx.x + blockDim.x * blockIdx.x;
+	int j = threadIdx.y + blockDim.y * blockIdx.y;
+	if (i<m && j<n) {
+		dB[i+j*ldb] = (dA[i+j*lda] - dB[i+j*ldb])*(dA[i+j*lda] - dB[i+j*ldb]);
+	}
+}
+
+__global__
 void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb )
 {
 	int i = threadIdx.x + blockDim.x * blockIdx.x;

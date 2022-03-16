@@ -77,13 +77,13 @@ int main(int argc,char *argv[])
         cudaMalloc( &hwork, sizeof(__half) * lhwork );
         cudaMalloc( &work, sizeof(float)*lwork );
         printf("Perform RGSQRF\nmatrix size %d*%d\n",m,n);
-        //startTimer();
+        startTimer();
 
         later_rgsqrf(ctxt, m,n,A,m,R,n,work,lwork,hwork,lhwork);
 
-        //float ms = stopTimer();
-        //printf("RGSQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
-                //2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
+        float ms = stopTimer();
+        printf("RGSQRF takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
+                2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
 
         if (checkFlag) {
 
@@ -115,11 +115,11 @@ int main(int argc,char *argv[])
         int lwork = m/256*32*n;
         cudaMalloc(&work, sizeof(float)*lwork);
 
-        //startTimer();
+        startTimer();
         later_rhouqr(m, n, A, m, W, m, R, n, work, lwork, hwork, lhwork, U);
-        //float ms = stopTimer();
-        //printf("RHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
-                //2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
+        float ms = stopTimer();
+        printf("RHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
+                2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));
 
         if(checkFlag)
         {
