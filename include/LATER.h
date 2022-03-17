@@ -69,6 +69,8 @@ These functions are related to EVD
 
 void later_qdwh_polar();
 
+void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda, float* U, int ldu, float* W, int ldw, float* R, int ldr, float* Z, int ldz, float* work, int lwork, __half* hwork, int lhwork);
+
 /*
 These functions are related to Cholesky factorization
 */
@@ -108,6 +110,18 @@ void s2h(int m, int n, float *as, int ldas, __half *ah, int ldah);
 __global__
 void h2s(int m, int n,__half *ah, int ldah, float *as, int ldas);
 
+__global__
+void h2h(int m, int n, __half *as, int ldas, __half *ah, int ldah);
+
+__global__
+void s2s(int m, int n, float *as, int ldas, float *aas, int ldaas);
+
+/*
+transpose: transpose a part/whole single matrix on GPU
+ */
+__global__
+void transpose(int m, int n, float* dA,int lda, float *tmpA);
+
 /*
 Generate a matrix on GPU
 normal matrix has a mean 0 and a standard deviation 1
@@ -129,6 +143,13 @@ set a matrix to be an identity matrix
 
 __global__
 void setEye( int m, int n, float *a, int lda);
+
+/*
+ Initialize a matrix with a value
+ */
+__global__
+void setInitialValue( int m, int n, float *a, int lda, float val);
+
 
 /*
 template<typename T>
