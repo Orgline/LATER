@@ -23,6 +23,7 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
         	float szeros = 0.0;
 		float snegones = -1.0;
 		float sneghalf= -0.5;
+		startTimer();
 		__half *buff1 = hwork;
         	__half *buff2 = hwork;
 		__half *buff_res = hwork;
@@ -32,7 +33,7 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 		//Z <- AW
        	 	s2h<<<gridDimA,blockDimA>>>(lm,lm,&A_cpy[(i+nb)+(i+nb)*lda],lda,&buff1[(i+nb)+(i+nb)*lda],lda);
                 s2h<<<gridDimA,blockDimA>>>(lm,ln,&W[(i+nb)+i*ldw],ldw,&buff2[(i+nb)+i*ldw],ldw);
-		startTimer();
+		
 		auto status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, lm, ln, lm,
                 &sones, &buff1[(i+nb)+(i+nb)*lda], CUDA_R_16F, lda, &buff2[(i+nb)+i*ldw], CUDA_R_16F, 
 		ldw, &szeros, &Z[(i+nb)+i*ldz], CUDA_R_32F, ldz, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
@@ -41,25 +42,25 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 		flops=2.0*lm*ln*lm;
 		p1+=ms;
 		printf("panel 1 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", lm, ln, lm, ms, flops/ms/1e9);
-
+		startTimer();
 		//buff_res <- W'(AW) = W'(Z)
 		s2h<<<gridDimA,blockDimA>>>(lm,ln,&W[(i+nb)+i*ldw],ldw,&buff1[(i+nb)+i*ldw],ldw);
                 s2h<<<gridDimA,blockDimA>>>(lm,ln,&Z[(i+nb)+i*ldz],ldz,&buff2[(i+nb)+i*ldz],ldz);		
-		startTimer();
+		
 		status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, ln, ln, lm, &sones, 
 		&buff1[(i+nb)+i*ldw], CUDA_R_16F, ldw, &buff2[(i+nb)+i*ldz], CUDA_R_16F, ldz, &szeros, 
-		&buff_res[i+i*lda], CUDA_R_16F, ln, CUDA_R_16F, CUBLAS_GEMM_DEFAULT);
+		&buff_res[i+i*lda], CUDA_R_16F, ln, CUDA_R_32F, CUBLAS_GEMM_DEFAULT);
 		assert(status == CUBLAS_STATUS_SUCCESS);
 		ms=stopTimer(); 
 		flops=2.0*ln*ln*lm;
 		p2+=ms;
                 printf("panel 2 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", ln, ln, lm, ms, flops/ms/1e9);
 
-
+		 startTimer();
 		//Z <- Z - 1/2*buff_res*W
 		s2h<<<gridDimA,blockDimA>>>(lm,ln,&A[(i+nb)+i*lda],lda,&buff1[(i+nb)+i*lda],lda);
                 h2h<<<gridDimA,blockDimA>>>(ln,ln,&buff_res[i+i*lda],lda,&buff2[i+i*lda],lda);
-                startTimer();
+               
 		status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, lm, ln, ln, &sneghalf,
                 &buff1[(i+nb)+i*lda], CUDA_R_16F, lda, &buff2[i+i*lda], CUDA_R_16F, ldw, &sones,
                 &Z[(i+nb)+i*ldz], CUDA_R_32F, ldz, CUDA_R_32F, CUBLAS_GEMM_DEFAULT);
@@ -76,11 +77,11 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 		//A=A'
 		float* tmpA = work;
 		transpose<<<gridDimA,blockDimA>>>(ln, lm, &A_cpy[i+(i+nb)*lda], lda, tmpA);
-
+		startTimer();
 		//A=A-YZ'
 		s2h<<<gridDimA,blockDimA>>>(lm,ln,&A[(i+nb)+i*lda],lda,&buff1[(i+nb)+i*lda],lda);
                 s2h<<<gridDimA,blockDimA>>>(lm,ln,&Z[(i+nb)+i*ldz],ldz,&buff2[(i+nb)+i*ldz],ldz);
-                startTimer();
+                
 		status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, lm, lm, ln, &snegones,
                 &buff1[(i+nb)+i*lda], CUDA_R_16F, lda, &buff2[(i+nb)+i*ldz], CUDA_R_16F, ldz, &sones,
                 &A_cpy[(i+nb)+(i+nb)*lda], CUDA_R_32F, lda, CUDA_R_32F, CUBLAS_GEMM_DEFAULT);
