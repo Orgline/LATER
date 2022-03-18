@@ -67,7 +67,9 @@ void later_rtrmm(int m, int n, float* A, int lda, float* B, int ldb, float *C, i
 These functions are related to EVD
 */
 
-void later_qdwh_polar();
+void later_qdwh_polar(cudaCtxt ctxt, int n, float *A, int lda, float *H, int ldh, float *tmpA, float *work, __half *hwork);
+
+void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int lda, float *work, int lwork, __half *hwork, int lhwork);
 
 /*
 These functions are related to Cholesky factorization

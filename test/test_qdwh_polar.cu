@@ -4,12 +4,14 @@
 #include <string>
 
 int n;
+int ns;
 bool checkFlag = false;
 
 int parseArguments(int argc,char *argv[])
 {
     n = atoi(argv[1]);
-    for (int i=2; i<argc; i++) {
+    ns = atoi(argv[2]);
+    for (int i=3; i<argc; i++) {
         if(strcmp(argv[i], "-check") == 0) {
             checkFlag = true;
         }
