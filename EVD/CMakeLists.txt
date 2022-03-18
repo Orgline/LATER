@@ -1,7 +1,7 @@
 include_directories(
         ../QR/include
 )
-add_library(evd later_qdwh_polar.cu later_sy2sb_rec.cu)
+add_library(evd later_qdwh_polar.cu later_sy2sb_rec.cu later_sy2sb_blocked.cu)
 
 target_include_directories(evd PUBLIC ../include)
 

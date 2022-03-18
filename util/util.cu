@@ -41,6 +41,43 @@ void h2s(int m, int n,__half *ah, int ldah, float *as, int ldas)
 	}
 }
 
+__global__
+void h2h(int m, int n, __half *as, int ldas, __half *ah, int ldah)
+{
+        int i = threadIdx.x + blockDim.x * blockIdx.x;
+        int j = threadIdx.y + blockDim.y * blockIdx.y;
+        if (i < m && j < n) {
+                ah[i + j*ldah] = as[i + j*ldas];
+        }
+}
+
+__global__
+void s2s(int m, int n, float *as, int ldas, float *aas, int ldaas)
+{
+        int i = threadIdx.x + blockDim.x * blockIdx.x;
+        int j = threadIdx.y + blockDim.y * blockIdx.y;
+        if (i < m && j < n) {
+                aas[i + j*ldaas] = as[i + j*ldas];
+        }
+}
+
+
+__global__
+void transpose(int m, int n, float* dA,int lda, float *tmpA){
+    int i = threadIdx.x + blockDim.x * blockIdx.x;
+    int j = threadIdx.y + blockDim.y * blockIdx.y;
+
+    if (i<m && j<n) {
+        tmpA[i+j*lda] = dA[i+j*lda];
+    }
+
+    __syncthreads();
+
+    if (i<m && j<n) {
+        dA[i+j*lda] = tmpA[i+j*lda];
+    }
+}
+
 void generateNormalMatrix(float *dA,int m,int n)
 {
     curandGenerator_t gen;
@@ -81,6 +118,17 @@ void setEye( int m, int n, float *a, int lda)
 		else
 			a[i+j*lda] = 0;
 	}
+}
+
+
+__global__
+void setInitialValue( int m, int n, float *a, int lda, float val)
+{
+        int i = threadIdx.x + blockDim.x * blockIdx.x;
+        int j = threadIdx.y + blockDim.y * blockIdx.y;
+        if (i < m && j < n) {
+                a[i+j*lda] = val;
+        }
 }
 
 void sSubstract(cublasHandle_t handle, int m,int n, float* dA,int lda, float* dB, int ldb)

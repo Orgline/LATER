@@ -70,6 +70,6 @@ int main(int argc,char *argv[])
     __half *hwork;
     cudaMalloc(&hwork, sizeof(__half)*2*n*n);
 
-    later_qdwh_polar(ctxt, n, A, lda, H, ldh, tmpA, work, hwork);
+    //later_qdwh_polar(ctxt, n, A, lda, H, ldh, tmpA, work, hwork);
     return 0;
 }
