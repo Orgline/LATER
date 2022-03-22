@@ -4,16 +4,23 @@
 #include <cuda_fp16.h>
 #include <assert.h>
 
-#define NMIN 128
+#define NMIN 32
 
 __global__
 void copyRtoPanel(int m, int n, float* dA,int lda, float *dR, int ldr)
 {
     int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int j = threadIdx.y + blockDim.y * blockIdx.y;
-	if (i<m && j<n) {
-        if(j >= i)
-		    dA[i+j*lda] = dR[i+j*ldr];
+	if (i<m && j<n) 
+    {
+        int block = j/NMIN;
+        int tmp = (block+1)*NMIN;
+        if(i >= (block+2)*NMIN)
+            dA[i+j*lda] = 0;
+        else if(i >= tmp)
+        {
+            dA[i+j*lda] = dR[(i-tmp)+j*ldr];
+        }        
 	}
 }
 
@@ -23,21 +30,52 @@ float ms =0.0;
 float total_ms = 0.0;
 float total_zy = 0.0;
 
+__global__
+void s2hAndClearTri(int m, int n, float *as, int ldas, __half *ah, int ldah)
+{
+	int i = threadIdx.x + blockDim.x * blockIdx.x;
+	int j = threadIdx.y + blockDim.y * blockIdx.y;
+	if (i < m && j < n) {
+        if(j>i)
+            ah[i + j*ldah] = __float2half(0.0f);
+        else
+		    ah[i + j*ldah] = __float2half(as[i + j*ldas]);
+	}
+}
 
 void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int lda, float *work, int lwork, __half *hwork, int lhwork)
 {
     printf("n = %d\n", n);
+    
     float sone = 1.0f;
     float snegone = -1.0f;
     float szero = 0.0f;
-    for(int i = 0; i < ns; i+=NMIN)
+    int end_ind;
+    if(ns == n)
+        end_ind = n - NMIN;
+    else
+        end_ind = ns;
+    for(int i = 0; i < end_ind; i+=NMIN)
     {
-        int lwork = n/256*32*NMIN;
+        int lwork = n*NMIN;
         int lhwork = n*NMIN;
-        //startTimer();
-        later_rhouqr(n - i, NMIN, &A[i+NMIN+i*lda], lda, work+i+NMIN+i*n, n, work+ns*n, NMIN, work+ns*n+NMIN*NMIN, lwork, hwork, lhwork, work+ns*n+NMIN*NMIN);
-        //ms = stopTimer();
-        //total_ms += ms;
+        startTimer();
+        /*
+        work to work[ns*lda] is used for storing W matirx;
+        work[ns*lda] to work[ns*lda+lda*NMIN] is used for storing R matrix; 
+        */
+        //printMatrixDeviceBlock("A.csv", n-i-NMIN, NMIN, A + i+NMIN+i*lda, lda);
+        later_rhouqr(n - i - NMIN, NMIN, &A[i+NMIN+i*lda], lda, work+i+NMIN+i*n, n, work+ns*lda+i*NMIN, NMIN, work+ns*lda+ns*NMIN, lwork, hwork, lhwork, work+ns*lda+ns*NMIN+lwork+lwork);
+        //later_ormqr(n-i-NMIN, NMIN, work+i+NMIN+i*n, n, A + i+NMIN+i*lda, lda, work+ns*n+ns*NMIN);
+        ms = stopTimer();
+        total_ms += ms;
+        //checkOtho_(n-i-NMIN, NMIN, work+i+NMIN+i*n, n);
+        //checkResult(n-i-NMIN, NMIN, oriA+ i+NMIN+i*lda, lda, work+i+NMIN+i*n, n,  work+ns*n+i*NMIN, NMIN);
+        
+        //printMatrixDeviceBlock("Y1.csv", n-i-NMIN, NMIN, A + i+NMIN+i*lda, lda);
+        
+        //printMatrixDeviceBlock("W1.csv", n-i-NMIN, NMIN, work+i+NMIN+i*n, n);
+        //printMatrixDeviceBlock("R.csv", NMIN, NMIN, work+ns*n+i*NMIN, NMIN);
 
         if(i > 0)
         {
@@ -49,7 +87,7 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             
             dim3 gridDimA((n-NMIN+31)/32,(i+31)/32);
             dim3 blockDimA(32,32);
-            s2h<<<gridDimA,blockDimA>>>(n - NMIN, i, A + NMIN, lda , Ah , n - NMIN);
+            s2hAndClearTri<<<gridDimA,blockDimA>>>(n - NMIN, i, A + NMIN, lda , Ah , n - NMIN);
             dim3 gridDimB((n-NMIN+31)/32,(NMIN+31)/32);
             s2h<<<gridDimB,blockDimA>>>(n - NMIN, NMIN, work+ NMIN + i * n, n, Bh, n - NMIN);
             CHECK_KERNEL();
@@ -72,16 +110,21 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             s2h<<<gridDimA,blockDimA>>>(n - NMIN, i, work + NMIN, n, Ah, n - NMIN);
             CHECK_KERNEL();
             status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, n - NMIN, NMIN, i,
-                                       &snegone, Ah, CUDA_R_16F, n - NMIN, Ch, CUDA_R_16F, i + NMIN,
+                                       &snegone, Ah, CUDA_R_16F, n - NMIN, Ch, CUDA_R_16F, i,
                                        &sone, work+NMIN+i*n, CUDA_R_32F, n, CUBLAS_COMPUTE_32F,
                                        CUBLAS_GEMM_DEFAULT_TENSOR_OP
                                     );
             ms = stopTimer();
+            // if(ns == n){
+            // printMatrixDeviceBlock("WW.csv", n-NMIN, ns, work+NMIN, n);
+            // printMatrixDeviceBlock("YY.csv", n-NMIN, ns, A+NMIN, lda);
+            // return;}
+
             flops = 2.0f*i*NMIN*(n-NMIN);
             total_ms = ms + total_ms;
             total_flops = flops + total_flops;
             printf("Form w 2 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", n - NMIN, NMIN, i, ms, flops/ms/1e9);
-
+            //return;
             //assert(status == CUBLAS_STATUS_SUCCESS);
             CHECK_KERNEL();
         }
@@ -95,10 +138,12 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             __half *Ch = hwork + (n - NMIN) * (n - NMIN) + (n - NMIN) * ns;
             dim3 gridDimA((n-NMIN+31)/32,(n-NMIN+31)/32);
             dim3 blockDimA(32,32);
-            s2h<<<gridDimA,blockDimA>>>(n - NMIN, n - NMIN, oriA + NMIN, lda, Ah ,n-NMIN);
+            s2h<<<gridDimA,blockDimA>>>(n - NMIN, n - NMIN, oriA + NMIN + NMIN * lda, lda, Ah ,n-NMIN);
             dim3 gridDimB((n-NMIN+31)/32,(ns+31)/32);
             s2h<<<gridDimB,blockDimA>>>(n - NMIN, ns, work + NMIN, n, Bh, n - NMIN);
             CHECK_KERNEL();
+            //printMatrixDeviceBlock("oriA.csv", n-NMIN, n-NMIN, oriA+NMIN+NMIN * lda, lda);
+            //printMatrixDeviceBlock("Wmid.csv", n-NMIN, ns, work+NMIN, n);
             auto status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, n - NMIN, ns, n - NMIN,
                                        &sone, Ah, CUDA_R_16F, n - NMIN, Bh, CUDA_R_16F, n - NMIN,
                                        &szero, Ch, CUDA_R_16F, n - NMIN, CUBLAS_COMPUTE_32F,
@@ -114,7 +159,8 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             CHECK_KERNEL();
             Ah = hwork;
             startTimer();
-            s2h<<<gridDimB,blockDimA>>>(n - ns, ns, A + ns, lda, Ah, n - ns);
+            dim3 gridDimC((n-ns+31)/32,(ns+31)/32);
+            s2h<<<gridDimC,blockDimA>>>(n - ns, ns, A + ns, lda, Ah, n - ns);
             CHECK_KERNEL();
             status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n - NMIN, n - ns, ns,
                                        &snegone, Ch, CUDA_R_16F, n - NMIN, Ah, CUDA_R_16F, n - ns,
@@ -128,12 +174,14 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             total_zy+=ms;
             total_flops = flops + total_flops;
             printf("matrix 2 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", n-NMIN, n-ns, ns, ms, flops/ms/1e9);
+            //printMatrixDeviceBlock("Amid.csv", n - NMIN, n - ns, A + NMIN + ns * lda, lda);
+            //return;
             //assert(status == CUBLAS_STATUS_SUCCESS);
             CHECK_KERNEL();
 
             startTimer();
-            dim3 gridDimC((n-NMIN+31)/32,(n-ns+31)/32);
-            s2h<<<gridDimA,blockDimA>>>(n - NMIN, n - ns, A + NMIN + ns * lda, lda, Ch ,n - NMIN);
+            dim3 gridDimD((n-NMIN+31)/32,(n-ns+31)/32);
+            s2h<<<gridDimD,blockDimA>>>(n - NMIN, n - ns, A + NMIN + ns * lda, lda, Ch ,n - NMIN);
             status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, ns, n - ns, n - NMIN,
                                        &sone, Bh, CUDA_R_16F, n - NMIN, Ch, CUDA_R_16F, n - NMIN,
                                        &szero, Ah, CUDA_R_16F, ns, CUBLAS_COMPUTE_32F,
@@ -146,10 +194,10 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             total_flops = flops + total_flops;
             printf("matrix 3 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", ns, n-ns, n-NMIN, ms, flops/ms/1e9);
             startTimer();
-            s2h<<<gridDimB,blockDimA>>>(n - ns, ns, A + ns, lda, Bh, n - ns);
+            s2h<<<gridDimC,blockDimA>>>(n - ns, ns, A + ns, lda, Bh, n - ns);
             status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, n - ns, n - ns, ns,
                                        &snegone, Bh, CUDA_R_16F, n - ns, Ah, CUDA_R_16F, ns,
-                                       &sone, A + ns + ns * NMIN, CUDA_R_32F, lda, CUBLAS_COMPUTE_32F,
+                                       &sone, A + ns + ns * lda, CUDA_R_32F, lda, CUBLAS_COMPUTE_32F,
                                        CUBLAS_GEMM_DEFAULT_TENSOR_OP
                                     );
             ms = stopTimer();
@@ -159,12 +207,23 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             total_flops = flops + total_flops;
             printf("matrix 4 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", n-ns, n-ns, ns,ms, flops/ms/1e9);
             printf("------Total time is %f ms, for size %d--------------------------------\n", total_ms, n);
+            //printMatrixDeviceBlock("newA.csv", lda, lda, A, lda);
+            //printMatrixDeviceBlock("newR.csv", NMIN, lda, work+ns*lda, NMIN);
+            dim3 gridDimE((n+31)/32,(ns+31)/32);
+            copyRtoPanel<<<gridDimE, blockDimA>>>(n, ns, A, lda, work+ns*lda, NMIN);
+            dim3 gridDimF((n -ns+31)/32,(n-ns+31)/32);
+            deviceCopy<<<gridDimF, blockDimA>>>(n-ns, n-ns, A+ns+ns*lda, lda, oriA+ns+ns*lda, lda);
+            cudaMemset(work, 0, sizeof(float)*2*lda*lda);
+            //printMatrixDeviceBlock("newA_.csv", lda, lda, A, lda);
+            //printMatrixDeviceBlock("newR_.csv", NMIN, lda, work+ns*lda, NMIN);
+            //return;
             later_sy2sb_rec(ctxt, n - ns, ns, A+ns+ns*lda, oriA+ns+ns*lda, lda, work, lwork, hwork, lhwork);
         }
         else
         {
-            if(i + NMIN >= ns)
-                break;
+            /*if this is the last iteration, the */
+            // if(i + NMIN >= ns)
+            //     break;
             /*if this isn't the last iteration, update the next panel*/
             startTimer();
             __half *Ah = hwork;
@@ -176,6 +235,8 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             dim3 gridDimA((NMIN+31)/32,(i+NMIN+31)/32);
             s2h<<<gridDimA,blockDimA>>>(NMIN, i + NMIN, A + i + NMIN , lda, Ah ,NMIN);
             CHECK_KERNEL();
+            //printMatrixDeviceBlock("Y.csv", NMIN, i+NMIN, A + i + NMIN, lda);
+            //printMatrixDeviceBlock("W.csv", n-NMIN, i+NMIN, work + NMIN, n);
             auto status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n - NMIN, NMIN, i + NMIN,
                                        &sone, Bh, CUDA_R_16F, n - NMIN, Ah, CUDA_R_16F, NMIN,
                                        &szero, Ch, CUDA_R_16F, n - NMIN, CUBLAS_COMPUTE_32F,
@@ -192,13 +253,15 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             startTimer();
             Ah = hwork;
             dim3 gridDimC((n-NMIN+31)/32,(n-NMIN+31)/32);
-            s2h<<<gridDimC,blockDimA>>>(n - NMIN, n - NMIN, oriA + NMIN, lda, Ah ,n - NMIN);
+            s2h<<<gridDimC,blockDimA>>>(n - NMIN, n - NMIN, oriA + NMIN+ NMIN * lda, lda, Ah ,n - NMIN);
             CHECK_KERNEL();
+            //printMatrixDeviceBlock("old_panel.csv", n-NMIN, NMIN, A + NMIN + (i + NMIN) * lda, lda);
             status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, n - NMIN, NMIN, n - NMIN,
                                        &snegone, Ah, CUDA_R_16F, n - NMIN, Ch, CUDA_R_16F, n - NMIN,
                                        &sone, A + NMIN + (i + NMIN) * lda, CUDA_R_32F, lda, CUBLAS_COMPUTE_32F,
                                        CUBLAS_GEMM_DEFAULT_TENSOR_OP
                                     );
+            
             //assert(status == CUBLAS_STATUS_SUCCESS);
             ms = stopTimer();
             flops = 2.0f*(n-NMIN)*NMIN*(n-NMIN);
@@ -219,9 +282,10 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             total_ms = ms + total_ms;
             total_flops = flops + total_flops;
             printf("panel 3 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", i+NMIN, NMIN, n-NMIN, ms, flops/ms/1e9);
+            //printMatrixDeviceBlock("Y.csv", n - NMIN - i, i+NMIN, A + i+ NMIN, lda);
             startTimer();
             dim3 gridDimE((n-NMIN-i+31)/32,(i+NMIN+31)/32);
-            s2h<<<gridDimB,blockDimA>>>(n-NMIN-i, i + NMIN, A + i+ NMIN, lda, Ah, n - NMIN - i);
+            s2h<<<gridDimB,blockDimA>>>(n-NMIN-i, i + NMIN, A + i + NMIN, lda, Ah, n - NMIN - i);
             status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, n - NMIN - i, NMIN, i + NMIN,
                                        &snegone, Ah, CUDA_R_16F, n - NMIN - i, Ch, CUDA_R_16F, i + NMIN,
                                        &sone, A + i + NMIN + (i + NMIN) * lda , CUDA_R_32F, lda, CUBLAS_COMPUTE_32F,
@@ -231,7 +295,19 @@ void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int ld
             flops = 2.0f*(n-NMIN-i)*NMIN*(i+NMIN);
             total_ms = ms + total_ms;
             total_flops = flops + total_flops;
+            //printMatrixDeviceBlock("new_panel.csv", n - NMIN - i, NMIN, A + i + NMIN + (i + NMIN) * lda, lda);
             printf("panel 4 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", n-NMIN-i, NMIN, i+NMIN, ms, flops/ms/1e9);
+            // if(n == ns && i == NMIN){
+            //     printMatrixDeviceBlock("new_panel.csv", n-i-NMIN, NMIN, A + i+NMIN + (i + NMIN) * lda, lda);
+            //     return;
+            // }
+            if(n == ns && i+NMIN >= end_ind)
+            {
+                printf("last panel\n");
+                dim3 gridDimF((n+31)/32,(n-NMIN+31)/32);
+                copyRtoPanel<<<gridDimF, blockDimA>>>(n, n - NMIN, A, lda, work+ns*lda, NMIN);
+            }
+            //return;
         }
     }
     printf("------Total time is %f ms, zy is %fms, total flops is %.3e, rate is %f TFLOPS\n",total_ms, total_zy, total_flops, total_flops/total_ms/1e9);
