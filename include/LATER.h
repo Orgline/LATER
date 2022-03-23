@@ -71,7 +71,7 @@ void later_qdwh_polar(cudaCtxt ctxt, int n, float *A, int lda, float *H, int ldh
 
 void later_sy2sb_rec(cudaCtxt ctxt, int n, int ns, float *A, float *oriA, int lda, float *work, int lwork, __half *hwork, int lhwork);
 
-void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda, float* U, int ldu, float* W, int ldw, float* R, int ldr, float* Z, int ldz, float* work, int lwork, __half* hwork, int lhwork);
+void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda, float* work, int lwork, __half* hwork, int lhwork);
 
 /*
 These functions are related to Cholesky factorization
@@ -123,6 +123,12 @@ transpose: transpose a part/whole single matrix on GPU
  */
 __global__
 void transpose(int m, int n, float* dA,int lda, float *tmpA);
+
+/*
+copy_upper_to_lower: copies the lower triangle to upper triangle for square matrix on GPU
+ */
+__global__ 
+void copy_lower_to_upper(int ldax, int lday, float* a);
 
 /*
 Generate a matrix on GPU

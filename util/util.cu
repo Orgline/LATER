@@ -78,6 +78,18 @@ void transpose(int m, int n, float* dA,int lda, float *tmpA){
     }
 }
 
+__global__ 
+void copy_lower_to_upper(int ldax, int lday, float* a)
+{
+    int i = threadIdx.x + blockDim.x * blockIdx.x;
+    int j = threadIdx.y + blockDim.y * blockIdx.y;
+    if(i < j){
+        int src = j*lday+i;
+        int dest = i*ldax+j;
+		a[dest] = a[src];
+    }
+}
+
 void generateNormalMatrix(float *dA,int m,int n)
 {
     curandGenerator_t gen;
@@ -95,6 +107,7 @@ void generateUniformMatrix(float *dA,int m,int n)
 	curandSetPseudoRandomGeneratorSeed(gen, seed);
     curandGenerateUniform(gen,dA,m*n);
 }
+
 
 float snorm(int m,int n,float* dA)
 {
@@ -165,6 +178,7 @@ void deviceCopy( int m, int n, float *da, int lda, float *db, int ldb )
 		db[i+j*ldb] = da[i+j*lda];
 	}
 }
+
 
 __global__
 void clearTri(char uplo, int m, int n, float *a, int lda)
