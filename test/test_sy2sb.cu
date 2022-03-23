@@ -43,34 +43,16 @@ int main(int argc,char *argv[]){
 	dim3 grid1((n+31)/32,(n+31)/32);
 	dim3 block1(32,32);
 	generateSyMatrix<<<grid1, block1>>>(n,n,A,lda,H);
-	printMatrixDeviceBlock("A_orig.csv", n, n, A, lda);
+	// printMatrixDeviceBlock("A_orig.csv", n, n, A, lda);
 
 	float* AA;
 	cudaMalloc(&AA,sizeof(float)*n*n);
 	cudaMemcpy(AA, A, sizeof(float)*n*n, cudaMemcpyDeviceToDevice); 
 
-	// float *W;
-	// dim3 grid2((n+31)/32,(nb+31)/32);
-	// cudaMalloc(&W,sizeof(float)*n*nb);
-	// setInitialValue<<<grid2, block1>>>( n,nb,W,n,0.0);
-
-	// float *Z;
-	// cudaMalloc(&Z,sizeof(float)*n*nb);
-	// setInitialValue<<<grid2, block1>>>( n, nb, Z, n, 0.0);
-
 	__half *hwork;
 	int lhwork = n*nb;
 	cudaMalloc( &hwork, sizeof(__half)*n*n*2);
 
-	// float *U;
-	// cudaMalloc(&U,sizeof(float)*nb*nb);
-	// dim3 grid3((nb+31)/32,(nb+31)/32);
-	// setInitialValue<<<grid3, block1>>>( nb, nb, U, nb, 0.0);
-
-	
-	// float *R;
-	// cudaMalloc(&R,sizeof(float)*nb*nb);
-	// setInitialValue<<<grid3, block1>>>( nb, nb, R, nb, 0.0);
 	
 	float *work;
 	int lwork = n*nb;
@@ -92,9 +74,6 @@ int main(int argc,char *argv[]){
 	cudaFree(H);
 	cudaFree(hwork);
 	cudaFree(work);
-	// cudaFree(U);
-	// cudaFree(W);
-	// cudaFree(R);
 	cublasDestroy(ctxt.cublas_handle);
 	cusolverDnDestroy(ctxt.cusolver_handle);
 	return 0;

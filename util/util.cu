@@ -83,7 +83,7 @@ void copy_lower_to_upper(int ldax, int lday, float* a)
 {
     int i = threadIdx.x + blockDim.x * blockIdx.x;
     int j = threadIdx.y + blockDim.y * blockIdx.y;
-    if(i < j){
+    if(i > j){
         int src = j*lday+i;
         int dest = i*ldax+j;
 		a[dest] = a[src];
