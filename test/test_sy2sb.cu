@@ -43,22 +43,20 @@ int main(int argc,char *argv[]){
 	dim3 grid1((n+31)/32,(n+31)/32);
 	dim3 block1(32,32);
 	generateSyMatrix<<<grid1, block1>>>(n,n,A,lda,H);
-	// printMatrixDeviceBlock("A_orig.csv", n, n, A, lda);
+	printMatrixDeviceBlock("A_orig_block.csv", n, n, A, lda);
 
 	float* AA;
 	cudaMalloc(&AA,sizeof(float)*n*n);
 	cudaMemcpy(AA, A, sizeof(float)*n*n, cudaMemcpyDeviceToDevice); 
 
-	__half *hwork;
-	int lhwork = n*nb;
-	cudaMalloc( &hwork, sizeof(__half)*n*n*2);
+	int lhwork=n*nb;
+	int lwork=n*nb;
 
-	
-	float *work;
-	int lwork = n*nb;
-	cudaMalloc(&work, sizeof(float)*n*n*2);
-	dim3 grid2((n*2+31)/32,(n+31)/32);
-	setInitialValue<<<grid2, block1>>>( 2*n, n, work, 2*n, 0.0);
+   	float *work;
+    cudaMalloc(&work,sizeof(float)*n*nb+nb*nb);
+	cudaMemset(work, 0, sizeof(float)*n*nb+nb*nb);
+    __half *hwork;
+    cudaMalloc(&hwork,sizeof(__half)*n*nb+nb*nb);
 
 	float* Dummy;
 	cudaMalloc(&Dummy,sizeof(float)*n*n);
@@ -67,8 +65,8 @@ int main(int argc,char *argv[]){
 	
 	// startTimer();
 	ssytrd_sy2sb(ctxt, n, nb, A, AA, lda, work, lwork, hwork, lhwork);
-//	float ms=stopTimer();
-//	printf("SY2SB takes %f ms\n", ms);
+	// float ms=stopTimer();
+	// printf("SY2SB takes %f ms\n", ms);
 
 	cudaFree(A);
 	cudaFree(H);
