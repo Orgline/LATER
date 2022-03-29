@@ -110,9 +110,9 @@ void later_bhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, 
 
         //panel factorization
         startTimer();
-        later_rhouqr(m-i, nb, A+i*lda+i, lda, W+i*lda+i, ldw, R+i*ldr+i, ldr, work, lwork, hwork, lhwork, U);
+        later_rhouqr(ctxt, m-i, nb, A+i*lda+i, lda, W+i*lda+i, ldw, R+i*ldr+i, ldr, work, lwork, hwork, lhwork, U);
         
-        formW(ctxt, m-i, nb, W+i*lda+i, ldw, A+i*lda+i, lda, work);
+        //formW(ctxt, m-i, nb, W+i*lda+i, ldw, A+i*lda+i, lda, work);
         panelTime += stopTimer();
         
         //printMatrixDeviceBlock_("W.csv", m-i, nb, W+i*lda+i, ldw);

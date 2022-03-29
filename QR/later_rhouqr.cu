@@ -24,19 +24,19 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
 
 void reconstructY(cudaCtxt ctxt, int m,int n, float* dA, float *dU, int lda);
 
-void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U)
+void later_rhouqr(cudaCtxt ctxt, int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U)
 {
     //printf("Function rhouqr\n");
     
-    cudaCtxt ctxt;
-    cublasCreate( & ctxt.cublas_handle );
-    cusolverDnCreate( & ctxt.cusolver_handle );
+    // cudaCtxt ctxt;
+    // cublasCreate( & ctxt.cublas_handle );
+    // cusolverDnCreate( & ctxt.cusolver_handle );
 
     ori_n = n;
     qr(ctxt, m, n, A, lda, W, ldw, R, ldr, work, lwork, hwork, lhwork, U);
     
-    cublasDestroy(ctxt.cublas_handle);
-    cusolverDnDestroy(ctxt.cusolver_handle);
+    // cublasDestroy(ctxt.cublas_handle);
+    // cusolverDnDestroy(ctxt.cusolver_handle);
     return;
 }
 
@@ -148,6 +148,7 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
     
      // if(n < ori_n)
      // {
+
         if(n/2<=128 || m<=128)
         {
             cublasSgemm(ctxt.cublas_handle,
@@ -195,8 +196,7 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
                 CUBLAS_GEMM_DEFAULT_TENSOR_OP
             );
             CHECK_KERNEL();
-          }
-    //}
+        }
     return;
 }
 

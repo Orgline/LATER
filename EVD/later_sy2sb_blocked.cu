@@ -50,7 +50,7 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 		// printMatrixDeviceBlock("A1.csv", lm, ln,  &A[(i+nb)+i*lda], lda);
 		CHECK_KERNEL();
 		startTimer();
-		later_rhouqr(lm, ln, &A[(i+nb)+i*lda], lda, &W[(i+nb)+i*n], n, R, nb, work, lwork, hwork, lhwork, work+nb*n+nb*nb);
+		later_rhouqr(ctxt, lm, ln, &A[(i+nb)+i*lda], lda, &W[(i+nb)+i*n], n, R, nb, work, lwork, hwork, lhwork, work+nb*n+nb*nb);
 		float ms=stopTimer();
 		float flops=2.0*lm*ln*lm;
 		qr+=ms;

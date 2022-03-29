@@ -76,7 +76,9 @@ int main(int argc,char *argv[])
     
     lwork = n*NMIN;
     lhwork = n*NMIN;
-
+    cudaCtxt ctxt {};
+    cublasCreate(&ctxt.cublas_handle );
+    cusolverDnCreate(&ctxt.cusolver_handle );
     
     dim3 gridDim((n+31)/32,(n+31)/32);
     dim3 blockDim(32,32);
@@ -86,12 +88,10 @@ int main(int argc,char *argv[])
     dim3 gridDimA((n*2+31)/32,(n+31)/32);
     setZeroOfWork<<<gridDimA, blockDim>>>(2*n, n, work, 2*n);
     cudaMemcpy(oriA, A, sizeof(float)*n*n, cudaMemcpyDeviceToDevice);
-    later_rhouqr(n, NMIN, A, lda, work, lda, work, NMIN, work, lwork, hwork, lhwork, work);
+    later_rhouqr(ctxt, n, NMIN, A, lda, work, lda, work, NMIN, work, lwork, hwork, lhwork, work);
     
 
-    cudaCtxt ctxt {};
-    cublasCreate(&ctxt.cublas_handle );
-    cusolverDnCreate(&ctxt.cusolver_handle );
+    
 
     
     // cudaEvent_t abegin, aend;
@@ -108,7 +108,7 @@ int main(int argc,char *argv[])
     cudaMemcpy(oriA, A, sizeof(float)*n*n, cudaMemcpyDeviceToDevice);
     //printMatrixDeviceBlock("A.csv", n,n,A,n);
     later_sy2sb_rec(ctxt, n, ns, A, oriA, lda, work, lwork, hwork, lhwork);
-    printMatrixDeviceBlock("A.csv", n,n,A,n);
+    //printMatrixDeviceBlock("A.csv", n,n,A,n);
     // cudaEventRecord(aend);
     // cudaEventSynchronize(aend);
     // float milliseconds;

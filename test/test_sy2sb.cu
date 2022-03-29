@@ -56,7 +56,7 @@ int main(int argc,char *argv[]){
 	dim3 grid2((n*2+31)/32,(n+31)/32);
 	setInitialValue<<<grid2, block1>>>(2*n, n, work, 2*n, 0);
 	cudaMemcpy(Dummy, A, sizeof(float)*n*n, cudaMemcpyDeviceToDevice); 
-	later_rhouqr(n, nb, Dummy, n, work, n, work, nb, work, lwork, hwork, lhwork, work);
+	later_rhouqr(ctxt, n, nb, Dummy, n, work, n, work, nb, work, lwork, hwork, lhwork, work);
 	
 	// startTimer();
 	setInitialValue<<<grid1, block1>>>(2*n, n, work, 2*n, 0);
