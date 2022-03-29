@@ -112,11 +112,11 @@ int main(int argc,char *argv[])
         cudaMalloc(&W,sizeof(float)*m*n);
 
         float *work;
-        int lwork = m/256*32*n;
+        int lwork = m*n;
         cudaMalloc(&work, sizeof(float)*lwork);
 
         startTimer();
-        later_rhouqr(m, n, A, m, W, m, R, n, work, lwork, hwork, lhwork, U);
+        later_rhouqr(ctxt, m, n, A, m, W, m, R, n, work, lwork, hwork, lhwork, U);
         float ms = stopTimer();
         printf("RHOUQR takes %.0f ms, exec rate %.0f GFLOPS\n", ms, 
                 2.0*n*n*( m -1.0/3.0*n )/(ms*1e6));

@@ -13,7 +13,7 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 		int lm=n-i-nb;
 		int ln=nb;
 		startTimer();
-		later_rhouqr(lm, ln, &A[(i+nb)+i*lda], lda, &W[(i+nb)+i*ldw], ldw, R, ldr, work, lwork, hwork, lhwork, U);
+		later_rhouqr(ctxt, lm, ln, &A[(i+nb)+i*lda], lda, &W[(i+nb)+i*ldw], ldw, R, ldr, work, lwork, hwork, lhwork, U);
 		float ms=stopTimer();
                 float flops=2.0*lm*ln*lm;
                 qr+=ms;

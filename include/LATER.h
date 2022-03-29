@@ -38,7 +38,7 @@ ormqr2: form explicit Q from bhouqr result
 */
 void later_rgsqrf(cudaCtxt ctxt, int m, int n, float* A, int lda, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork);
 
-void later_rhouqr(int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U);
+void later_rhouqr(cudaCtxt ctxt, int m, int n, float* A, int lda, float* W, int ldw, float* R, int ldr, float* work, int lwork, __half* hwork, int lhwork, float* U);
 
 void later_ormqr(int m, int n, float* W, int ldw, float* Y, int ldy, float *work);
 
