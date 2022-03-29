@@ -196,6 +196,7 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
                 CUBLAS_GEMM_DEFAULT_TENSOR_OP
             );
             CHECK_KERNEL();
+        }
     return;
 }
 

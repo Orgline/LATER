@@ -61,7 +61,7 @@ int main(int argc,char *argv[]){
 	float* Dummy;
 	cudaMalloc(&Dummy,sizeof(float)*n*n);
 	cudaMemcpy(Dummy, A, sizeof(float)*n*n, cudaMemcpyDeviceToDevice); 
-	later_rhouqr(n, nb, Dummy, n, work, n, work, nb, work, lwork, hwork, lhwork, work);
+	later_rhouqr(ctxt, n, nb, Dummy, n, work, n, work, nb, work, lwork, hwork, lhwork, work);
 	
 	// startTimer();
 	ssytrd_sy2sb(ctxt, n, nb, A, AA, lda, work, lwork, hwork, lhwork);
