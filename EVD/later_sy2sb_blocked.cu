@@ -33,21 +33,21 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 	float sneghalf= -0.5;
 
 	float* W;
-	cudaMalloc(&W,sizeof(float)*n*nb);
+	cudaMalloc(&W,sizeof(float)*n*n);
 	float* R;
 	cudaMalloc(&R,sizeof(float)*n*n);
 
 
-	char name[] = "W0.csv";
+	// char name[] = "W0.csv";
 	// printf("norm(origA)::%f \n",snorm(n,n,A_cpy));
 
 	for(int i=0; i<(n-nb); i+=nb){
 		int lm=n-i-nb;
 		int ln=nb;
-		// printf("Itertaion %d :: Matrix size is %d*%d\n", i, lm, ln);
-		// name[0] = 'P';
+		printf("Itertaion %d :: Matrix size is %d*%d\n", i, lm, ln);
+		// name[0] = 'A';
 		// name[1] = (i/nb)+'0';
-		// printMatrixDeviceBlock(name, lm, ln,  &A[(i+nb)+i*lda], lda);
+		// printMatrixDeviceBlock("A1.csv", lm, ln,  &A[(i+nb)+i*lda], lda);
 		CHECK_KERNEL();
 		startTimer();
 		later_rhouqr(lm, ln, &A[(i+nb)+i*lda], lda, &W[(i+nb)+i*n], n, R, nb, work, lwork, hwork, lhwork, work+nb*n+nb*nb);
@@ -55,13 +55,14 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 		float flops=2.0*lm*ln*lm;
 		qr+=ms;
 		printf("QR takes %fms, rate is %f TFLOPs\n", ms, flops/ms/1e9);
-		// name[0] = 'W';
-		// printMatrixDeviceBlock(name, lm, ln, &work[(i+nb)+i*n], n);
-		// name[0] = 'R';
-		// printMatrixDeviceBlock(name, ln, ln, &work[nb*n+i*nb], nb);
-		// name[0] = 'Y';
-		// printMatrixDeviceBlock(name, lm, ln, &A[(i+nb)+i*lda], lda);
+		// // name[0] = 'W';
+		// printMatrixDeviceBlock("W1.csv", lm, ln, &W[(i+nb)+i*n], n);
+		// // name[0] = 'R';
+		// printMatrixDeviceBlock("R1.csv", ln, ln, R, nb);
+		// // name[0] = 'Y';
+		// printMatrixDeviceBlock("Y1.csv", lm, ln, &A[(i+nb)+i*lda], lda);
 		
+
 		//Z = A*W - 1/2(Y*W'*A*W)
 		__half *buff1 = hwork;
 		__half *buff2 = hwork+(n-nb)*(n-nb);
@@ -81,12 +82,10 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 		CUDA_R_16F, lm, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
 		assert(status == CUBLAS_STATUS_SUCCESS);
 		ms=stopTimer();	
-		// __half* buff_aw = hwork;
-		// h2h<<<grid2,block1>>>(lm, ln, buff_res, lm , buff_aw, lm);
 		flops=2.0*lm*ln*lm;
 		p1+=ms;
 		printf("panel 1 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", lm, ln, lm, ms, flops/ms/1e9);
-		// printMatrixDeviceBlock("A1.csv", lm, lm, &A_cpy[(i+nb)+(i+nb)*lda], lda);
+		// printMatrixDeviceBlock("A_cpy1.csv", lm, lm, &A_cpy[(i+nb)+(i+nb)*lda], lda);
 		// printMatrixDeviceBlock("W1.csv", lm, ln, &W[(i+nb)+i*n], n);
 		// float* AW;
 		// cudaMalloc(&AW,sizeof(float)*lm*ln);
@@ -94,13 +93,12 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 		// printMatrixDeviceBlock("AW1.csv", lm, ln, AW, lm);
 
 
-
 		//buff2 <- W'(AW) = W'(Z) = W'(buff_res)
-		//buff1 is W and buff_res is Z
+		//buff1 is W and buff2 is Z
 		CHECK_KERNEL();
 		startTimer();
 		s2h<<<grid2,block1>>>(lm, ln, &W[(i+nb)+i*n], n, buff1, lm);
-		h2h<<<grid2,block1>>>(lm, ln, buff_res, lm, buff2, lm);
+		h2h<<<grid2,block1>>>(lm, ln, buff_res, lm, buff2, lm); //(AW) is copied to buff2
 		cudaMemset(buff_res, 0, sizeof(__half)*ln*ln);
 		status=cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, ln, ln, lm, &sones, 
 		buff1, CUDA_R_16F, lm, buff2, CUDA_R_16F, lm,  &szeros, 
@@ -114,22 +112,25 @@ void ssytrd_sy2sb(cudaCtxt ctxt, int n, int nb, float *A, float* A_cpy, int lda,
 		// cudaMalloc(&WAW,sizeof(float)*ln*ln); 
 		// dim3 grid3( (ln+31)/32,(ln+31)/32);
 		// h2s<<<grid3,block1>>>(ln, ln, buff_res, ln, WAW, ln);
-		// // printMatrixDeviceBlock("W1.csv", lm, ln, &W[(i+nb)+i*n], n);
-		// // printMatrixDeviceBlock("AW1.csv", lm, ln, AW, lm);
+		// printMatrixDeviceBlock("W1.csv", lm, ln, &W[(i+nb)+i*n], n);
+		// printMatrixDeviceBlock("AW1.csv", lm, ln, AW, lm);
 		// printMatrixDeviceBlock("WAW1.csv", ln, ln, WAW, ln);
 
+		
+
 		//Z <- Z - 1/2*Y*(W'(AW)) = buff2 - 1/2*buff1*(buff_res)
+		//buff2 is AW and buff_res is W'(AW)
 		CHECK_KERNEL();
 		startTimer();
 		s2h<<<grid2,block1>>>(lm, ln, &A[(i+nb)+i*lda], lda, buff1, lm); 
 		status = cublasGemmEx(ctxt.cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, lm, ln, ln, &sneghalf,
 		buff1, CUDA_R_16F, lm, buff_res, CUDA_R_16F, ln, &sones,
 		buff2, CUDA_R_16F, lm, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-		// assert(status == CUBLAS_STATUS_SUCCESS);
+		assert(status == CUBLAS_STATUS_SUCCESS);
 		ms=stopTimer();
 		p3+=ms;
 		flops=2.0*lm*ln*ln;
-		printf("panel 3 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", lm, ln, ln, ms, flops/ms/1e9); 
+		printf("panel 3 GEMM size is %d*%d*%d takes %fms, rate is %f TFLOPs\n", lm, ln, ln, ms, flops/ms/1e9);
 		// float* Z;
 		// cudaMalloc(&Z,sizeof(float)*lm*ln); 
 		// h2s<<<grid2,block1>>>(lm, ln, buff2, lm, Z, lm);
