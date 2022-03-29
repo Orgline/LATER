@@ -146,7 +146,9 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
 
     CHECK_KERNEL();
     
-    
+     // if(n < ori_n)
+     // {
+
         if(n/2<=128 || m<=128)
         {
             cublasSgemm(ctxt.cublas_handle,
@@ -194,8 +196,6 @@ void qr(cudaCtxt ctxt, int m, int n, float *A, int lda, float *W, int ldw, float
                 CUBLAS_GEMM_DEFAULT_TENSOR_OP
             );
             CHECK_KERNEL();
-        }
-    
     return;
 }
 
