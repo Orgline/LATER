@@ -17,7 +17,7 @@ $ export CUDACXX=/usr/local/cuda-10.1/bin/nvcc
 $ export CUDA_PATH=/usr/local/cuda-10.1
 $ export CUTLASS_DIR=<CUTLASS Diretory> 
 $ # for exmaple ~/cutlass-2.1.0
-$ cmake .. -DCMAKE_CUDA_FLAGS="-gencode=arch=compute_75,code=sm_75" -DCUDA_ARCH="Turing"
+$ cmake .. -DCMAKE_CUDA_FLAGS="-gencode=arch=compute_80,code=sm_80" -DCUDA_ARCH="Ampere"
 $ # On Volta, 75->70, Turing->Volta
 $ cmake --build .
 ```
